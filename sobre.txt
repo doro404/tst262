@@ -1,0 +1,50 @@
+Rota para Inserir Dados de um Anime (/inserirDados):
+
+Método HTTP: POST
+Solicitação: Recebe um objeto JSON contendo os dados do anime a ser inserido, incluindo sua capa, título, informações alternativas, sinopse, gênero, classificação, status, quantidade de temporadas, ano de lançamento, data de postagem, informações sobre ovas, filmes, estúdio e diretor. Também recebe uma lista de episódios associados ao anime.
+Descrição: Insere os dados do anime e seus episódios associados no banco de dados. Os episódios são inseridos em uma transação para garantir a consistência dos dados.
+Resposta: Retorna o ID do anime recém-inserido.
+Rota para Inserir Episódios de um Anime (/inserirEpisodios):
+
+Método HTTP: POST
+Solicitação: Recebe um objeto JSON contendo a lista de episódios a serem inseridos e o ID do anime ao qual os episódios estão associados.
+Descrição: Insere os episódios fornecidos no banco de dados, associando-os ao anime especificado. Utiliza uma transação para garantir a consistência dos dados.
+Resposta: Retorna uma mensagem indicando se os episódios foram inseridos com sucesso.
+Rota para Editar Dados de um Anime (/catalogo/:id):
+
+Método HTTP: PUT
+Solicitação: Recebe o ID do anime a ser atualizado e um objeto JSON contendo os novos dados do anime, incluindo episódios atualizados.
+Descrição: Atualiza os dados do anime especificado no banco de dados, incluindo os dados dos episódios associados. Os episódios são atualizados em uma transação para garantir a consistência dos dados.
+Resposta: Retorna uma mensagem indicando se os dados do anime foram atualizados com sucesso.
+Rota para Buscar Animes (/todosAnimes/:id?):
+
+Método HTTP: GET
+Solicitação: Pode receber opcionalmente o ID de um anime específico. Se fornecido, busca os dados desse anime; caso contrário, busca todos os animes.
+Descrição: Retorna os dados de todos os animes no banco de dados ou os dados de um anime específico, incluindo os episódios associados.
+Resposta: Retorna os dados dos animes no formato JSON.
+Rota para Limpar o Banco de Dados (/limparBanco):
+
+Método HTTP: DELETE
+Solicitação: Não requer parâmetros.
+Descrição: Limpa o banco de dados, excluindo todos os dados das tabelas de animes e episódios, e reseta as sequências das tabelas.
+Resposta: Retorna uma mensagem indicando se o banco de dados foi limpo com sucesso.
+Rota para Excluir um Anime e seus Episódios (/excluirAnime/:id):
+
+Método HTTP: DELETE
+Solicitação: Recebe o ID do anime a ser excluído.
+Descrição: Exclui o anime especificado do banco de dados, juntamente com todos os seus episódios associados.
+Resposta: Retorna uma mensagem indicando se o anime e seus episódios foram excluídos com sucesso.
+
+
+Método HTTP: PUT
+Solicitação: Não requer parâmetros.
+Descrição: digitar o dominio antigo no .
+Rota para trocar o dominio do banco de dados pra caso mude o dominio do site (/alterarDominio):
+
+EXEMPLO DE JSON A ENVIAR PRO PARAMETRO /alterarDominio
+{
+    "dominioAntigo": "https://incriveiscuriosidades.online",
+    "dominioNovo": "https://novo_dominio.com"
+}
+
+/////////////////////////////////////////////////////////////
