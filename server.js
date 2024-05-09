@@ -1308,34 +1308,43 @@ app.post('/animes_exibir_editar/:anime_id', (req, res) => {
 
     // Iniciar a transação
     db.serialize(() => {
-        // Deletar todos os episódios existentes para o anime
-        db.run('DELETE FROM Episodios_exibir WHERE anime_id = ?', [animeId], function(err) {
+        // Atualizar o título do anime
+        db.run('UPDATE animes_exibir SET titulo = ? WHERE id = ?', [titulo, animeId], function(err) {
             if (err) {
-                console.error('Erro ao deletar episódios existentes:', err.message);
-                res.status(500).send('Erro ao deletar episódios existentes');
+                console.error('Erro ao atualizar o título do anime:', err.message);
+                res.status(500).send('Erro ao atualizar o título do anime');
                 return;
             }
 
-            // Inserir os novos episódios na ordem correta
-            const insertEpisodioQuery = `
-                INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link)
-                VALUES (?, ?, ?, ?, ?)
-            `;
-            let insertedCount = 0; // Contador para verificar se todos os episódios foram inseridos com sucesso
-            episodios.forEach(episodio => {
-                const { temporada, numEpisodio, descricao, link } = episodio;
-                db.run(insertEpisodioQuery, [animeId, temporada, numEpisodio, descricao, link], function(err) {
-                    if (err) {
-                        console.error('Erro ao inserir episódio:', err.message);
-                        res.status(500).send('Erro ao inserir episódio');
-                        return;
-                    }
-                    insertedCount++;
-                    // Verificar se todos os episódios foram inseridos
-                    if (insertedCount === episodios.length) {
-                        // Todos os episódios foram inseridos, enviar resposta de sucesso
-                        res.status(200).send('Episódios atualizados com sucesso!');
-                    }
+            // Deletar todos os episódios existentes para o anime
+            db.run('DELETE FROM Episodios_exibir WHERE anime_id = ?', [animeId], function(err) {
+                if (err) {
+                    console.error('Erro ao deletar episódios existentes:', err.message);
+                    res.status(500).send('Erro ao deletar episódios existentes');
+                    return;
+                }
+
+                // Inserir os novos episódios na ordem correta
+                const insertEpisodioQuery = `
+                    INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link)
+                    VALUES (?, ?, ?, ?, ?)
+                `;
+                let insertedCount = 0; // Contador para verificar se todos os episódios foram inseridos com sucesso
+                episodios.forEach(episodio => {
+                    const { temporada, numEpisodio, descricao, link } = episodio;
+                    db.run(insertEpisodioQuery, [animeId, temporada, numEpisodio, descricao, link], function(err) {
+                        if (err) {
+                            console.error('Erro ao inserir episódio:', err.message);
+                            res.status(500).send('Erro ao inserir episódio');
+                            return;
+                        }
+                        insertedCount++;
+                        // Verificar se todos os episódios foram inseridos
+                        if (insertedCount === episodios.length) {
+                            // Todos os episódios foram inseridos, enviar resposta de sucesso
+                            res.status(200).send('Episódios atualizados com sucesso!');
+                        }
+                    });
                 });
             });
         });
