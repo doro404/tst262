@@ -657,7 +657,8 @@ app.get('/todosAnimes/:id?', (req, res) => {
                 e.numero,
                 e.nome AS nome_episodio,
                 e.link,
-                e.capa_ep
+                e.capa_ep,
+                a.visualizacoes AS visualizacoes
             FROM 
                 animes a
             LEFT JOIN 
@@ -697,6 +698,7 @@ app.get('/todosAnimes/:id?', (req, res) => {
                 estudio: rows[0].estudio,
                 diretor: rows[0].diretor,
                 tipoMidia: rows[0].tipoMidia,
+                visualizacoes: rows[0].visualizacoes,
                 episodios: []
             };
 
@@ -742,7 +744,8 @@ app.get('/todosAnimes/:id?', (req, res) => {
                 e.numero,
                 e.nome AS nome_episodio,
                 e.link,
-                e.capa_ep
+                e.capa_ep,
+                a.visualizacoes AS visualizacoes
             FROM 
                 animes a
             LEFT JOIN 
@@ -781,6 +784,7 @@ app.get('/todosAnimes/:id?', (req, res) => {
                         estudio: row.estudio,
                         diretor: row.diretor,
                         tipoMidia: row.tipoMidia,
+                        visualizacoes: row.visualizacoes,
                         episodios: []
                     };
                     animes.push(currentAnime);
@@ -1090,8 +1094,6 @@ app.get('/api/receber-link-temporario/:idTemporario', (req, res) => {
     });
 }); /// rota pra receber o link temporario
 
-
-
 app.get('/titulos-semelhantes/:id', (req, res) => {
     const animeId = req.params.id;
 
@@ -1260,7 +1262,7 @@ app.post('/animes_exibir/:anime_id', (req, res) => {
         // Enviar resposta de sucesso após a conclusão da inserção de todos os episódios
         res.status(200).send('Anime e episódios inseridos com sucesso!');
     });
-}); ///rota pra inserir os detalhes dos animes na tabela 
+}); /// rota pra inserir os detalhes dos animes na tabela 
 
 app.post('/animes_exibir_editar/:anime_id', (req, res) => {
     const animeId = req.params.anime_id;
@@ -1322,7 +1324,76 @@ app.post('/animes_exibir_editar/:anime_id', (req, res) => {
             });
         });
     });
-}); ///rota pra editar os detalhes dos animes na tabela  
+}); /// rota pra editar os detalhes dos animes na tabela 
+
+
+app.post('/animes/:id/visualizar', (req, res) => {
+    const { id } = req.params;
+    db.run(`UPDATE animes SET visualizacoes = visualizacoes + 1 WHERE id = ?`, [id], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ message: `Visualizações do anime com ID ${id} incrementadas.` });
+    });
+}); /// rota pra incrementar visualizaçao de um anime com o id dele na tabela
+
+app.get('/animes/:id/visualizacoes', (req, res) => {
+    const { id } = req.params;
+    db.get(`SELECT visualizacoes FROM animes WHERE id = ?`, [id], (err, row) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        if (!row) {
+            res.status(404).json({ error: `Anime com ID ${id} não encontrado.` });
+            return;
+        }
+        res.json({ id, visualizacoes: row.visualizacoes });
+    });
+}); /// rota pra receber os valores de vizualizados na tabela
+
+app.post('/animes/:id/zerar', (req, res) => {
+    const { id } = req.params;
+    db.run(`UPDATE animes SET visualizacoes = 0 WHERE id = ?`, [id], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json({ message: `Visualizações do anime com ID ${id} foram zeradas.` });
+    });
+}); /// rota pra zerar os valores de visualizados de uma anime na tabela
+
+app.get('/animes/status/:status', (req, res) => {
+    const { status } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const offset = (page - 1) * limit;
+
+    db.all(`SELECT * FROM animes WHERE status = ? LIMIT ? OFFSET ?`, [status, limit, offset], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+
+        db.get(`SELECT COUNT(*) AS total FROM animes WHERE status = ?`, [status], (err, result) => {
+            if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+            }
+
+            const total = result.total;
+            const totalPages = Math.ceil(total / limit);
+
+            res.json({
+                paginaAtual: page,
+                paginaTotal: totalPages,
+                itensTotal: total,
+                itens: rows
+            });
+        });
+    });
+}); ///rota pra receber status dos animes que estao em andamentos completos basicamente retorna os animes com base nos status deles
 
 function verificarLinksExpirados() {
     const currentTime = Date.now();
@@ -1343,6 +1414,7 @@ function verificarLinksExpirados() {
         }
     });
 }  /// funçao pra excluir link expirados periodicamente
+
 
 // Chama a função verificarLinksExpirados a cada 24 horas (em milissegundos)
 const intervaloVerificacao = 24 * 60 * 60 * 1000; // 24 horas
