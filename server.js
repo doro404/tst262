@@ -15,7 +15,6 @@ const { vpsUrl } = require('./config');
 const compression = require('compression');
 const cron = require('cron');
 const fetch = require('node-fetch');
-const puppeteer = require('puppeteer');
 
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
@@ -1267,6 +1266,90 @@ app.post('/animes_exibir/:anime_id', (req, res) => {
     });
 }); /// rota pra inserir os detalhes dos animes na tabela 
 
+app.post('/animes_exibir_index', (req, res) => {
+    const { titulo, episodios } = req.body;
+
+    // Verificar se o título do anime já existe na tabela Animes_exibir
+    const consultaTituloExistente = `
+        SELECT COUNT(*) AS count FROM Animes_exibir WHERE titulo = ?
+    `;
+
+    db.get(consultaTituloExistente, [titulo], (err, row) => {
+        if (err) {
+            console.error('Erro ao verificar título do anime:', err.message);
+            res.status(500).send('Erro ao verificar título do anime');
+            return;
+        }
+
+        if (row.count > 0) {
+            console.log('O título do anime já existe na tabela.');
+            res.status(400).send('O título do anime já existe na tabela');
+            return;
+        }
+
+        // Consultar o maior anime_id da tabela Animes_exibir
+        const consultaMaiorAnimeId = `
+            SELECT MAX(CAST(Anime_id AS INTEGER)) AS max_anime_id FROM Animes_exibir
+        `;
+
+        db.get(consultaMaiorAnimeId, (err, row) => {
+            if (err) {
+                console.error('Erro ao consultar o maior anime_id:', err.message);
+                res.status(500).send('Erro ao consultar o maior anime_id');
+                return;
+            }
+
+            let proximoAnimeId;
+            if (row && row.max_anime_id !== null) {
+                proximoAnimeId = parseInt(row.max_anime_id) + 1; // Incrementar o maior Anime_id encontrado em 1
+            } else {
+                proximoAnimeId = 1; // Se não houver nenhum registro, começar com 1
+            }
+
+            // Log dos dados recebidos
+            console.log('Dados recebidos:');
+            console.log('animeId:', proximoAnimeId);
+            console.log('titulo:', titulo);
+            console.log('episodios:', episodios);
+
+            // Inserir informações do anime na tabela Animes_exibir
+            const insertAnimeQuery = `
+                INSERT INTO Animes_exibir (Anime_id, titulo)
+                VALUES (?, ?)
+            `;
+
+            db.run(insertAnimeQuery, [proximoAnimeId, titulo], function(err) {
+                if (err) {
+                    console.error(err.message);
+                    res.status(500).send('Erro ao inserir anime');
+                    return;
+                }
+
+                // Anime inserido com sucesso, agora inserir os episódios relacionados
+                episodios.forEach(episodio => {
+                    const { temporada, episodio: numEpisodio, descricao, link, link_extra } = episodio;
+                    const insertEpisodioQuery = `
+                        INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `;
+                    const values = [proximoAnimeId, temporada, numEpisodio, descricao, link, link_extra.link_extra_1, link_extra.link_extra_2, link_extra.link_extra_3];
+
+                    db.run(insertEpisodioQuery, values, function(err) {
+                        if (err) {
+                            console.error(err.message);
+                            res.status(500).send('Erro ao inserir episódio');
+                            return;
+                        }
+                    });
+                });
+
+                // Enviar resposta de sucesso após a conclusão da inserção de todos os episódios
+                res.status(200).send('Anime e episódios inseridos com sucesso!');
+            });
+        });
+    });
+});  /// rota criada pra inserir os dados recebido pelo indexer 
+
 app.post('/animes_exibir_editar/:anime_id', (req, res) => {
     const animeId = req.params.anime_id;
     const { titulo, episodios } = req.body;
@@ -1398,154 +1481,85 @@ app.get('/animes/status/:status', (req, res) => {
     });
 }); ///rota pra receber status dos animes que estao em andamentos completos basicamente retorna os animes com base nos status deles
 
-function verificarLinksExpirados() {
-    const currentTime = Date.now();
-    db.run("DELETE FROM links WHERE dataExpiracao < ?", [currentTime], (err) => {
+app.get('/pesquisa/termo', (req, res) => {
+    const searchTerm = req.query.term; // Parâmetro de consulta 'term' na URL
+    if (!searchTerm) {
+        return res.status(400).json({ error: 'É necessário fornecer um termo de pesquisa.' });
+    }
+
+    const limit = req.query.limit || 100; // Limite padrão de resultados (até 100)
+
+    // Consulta SQL para buscar animes que correspondem ao termo no título ou título alternativo
+    const query = `
+        SELECT a.*, e.*
+        FROM animes AS a
+        LEFT JOIN episodios AS e ON a.id = e.anime_id
+        WHERE a.titulo LIKE '%' || ? || '%' OR a.tituloAlternativo LIKE '%' || ? || '%'
+        LIMIT ?;
+    `;
+    
+    db.all(query, [searchTerm, searchTerm, limit], (err, rows) => {
         if (err) {
-            console.error('Erro ao excluir links expirados:', err);
-        } else {
-            console.log('Links expirados foram excluídos com sucesso.');
-
-            // Após excluir os links, chama o vácuo para otimização do banco de dados
-            db.run("VACUUM", [], (vacuumErr) => {
-                if (vacuumErr) {
-                    console.error('Erro ao executar vacuum:', vacuumErr);
-                } else {
-                    console.log('Vácuo executado com sucesso.');
-                }
-            });
+            console.error(err);
+            return res.status(500).json({ error: 'Erro ao buscar animes.' });
         }
-    });
-}  /// funçao pra excluir link expirados periodicamente
 
-const checkVideoPlayback = async (url) => {
-    console.log(url);
-    let browser;
-    let retries = 3; // Number of retry attempts
-    while (retries > 0) {
-        try {
-            const browser = await puppeteer.launch({
-                executablePath: '/usr/bin/chromium-browser',
-                headless: true,
-                args: ['--no-sandbox', '--disable-setuid-sandbox'], // Adicione essas flags se necessário
-            });
+        // Usar um objeto para armazenar os animes únicos e seus episódios
+        const animeMap = {};
 
-            const page = await browser.newPage();
-            await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+        rows.forEach(row => {
+            const animeId = row.anime_id; // Usar anime_id para associar episódios ao anime correto
 
-            const isVideoPlayable = await checkForVideos(page);
-            
-            await browser.close();
-            console.log(isVideoPlayable);
-            return isVideoPlayable;
-        } catch (error) {
-            console.log(`Error checking video at ${url}:`, error.message);
-            if (browser) await browser.close();
-            retries--; // Decrement retries
-            console.log(`Tentando Novamente... Tentativas Resstantes: ${retries}`);
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds before retrying
-        }
-    }
-    return false; // Return false if all retries fail
-};
-
-const checkForVideos = async (page) => {
-    // Check for videos on the main page
-    const mainPageVideoPlayable = await page.evaluate(() => {
-        const video = document.querySelector('video');
-        if (video) {
-            return new Promise((resolve) => {
-                video.oncanplaythrough = () => resolve(true);
-                video.onerror = () => resolve(false);
-                video.load();
-            });
-        }
-        return false;
-    });
-
-    if (mainPageVideoPlayable) return true; // If video found on main page, return true
-
-    // Check for videos within iframes
-    const iframes = await page.frames();
-    for (const frame of iframes) {
-        const iframeVideoPlayable = await frame.evaluate(() => {
-            const video = document.querySelector('video');
-            if (video) {
-                return new Promise((resolve) => {
-                    video.oncanplaythrough = () => resolve(true);
-                    video.onerror = () => resolve(false);
-                    video.load();
-                });
+            // Verificar se o anime já está no mapa
+            if (!animeMap[animeId]) {
+                // Inicializar o objeto do anime
+                animeMap[animeId] = {
+                    id: row.id, // Pode ser útil manter o id do anime aqui se necessário
+                    capa: row.capa,
+                    titulo: row.titulo,
+                    tituloAlternativo: row.tituloAlternativo,
+                    selo: row.selo,
+                    sinopse: row.sinopse,
+                    classificacao: row.classificacao,
+                    status: row.status,
+                    qntd_temporadas: row.qntd_temporadas,
+                    anoLancamento: row.anoLancamento,
+                    dataPostagem: row.dataPostagem,
+                    ovas: row.ovas,
+                    filmes: row.filmes,
+                    estudio: row.estudio,
+                    diretor: row.diretor,
+                    genero: row.genero,
+                    visualizacoes: row.visualizacoes,
+                    tipoMidia: row.tipoMidia,
+                    episodios: [] // Inicializa array para os episódios do anime
+                };
             }
-            return false;
-        });
-        if (iframeVideoPlayable) return true; // If video found within iframe, return true
-    }
 
-    return false; // If no playable videos found
-}
-const reportPath = path.join(__dirname, 'links-invalidos-videos.txt');
-app.get('/verificar-links', async (req, res) => {
-    const episodes = await new Promise((resolve, reject) => {
-        db.all(`
-            SELECT Episodios_exibir.id, Episodios_exibir.descricao AS nome, Episodios_exibir.link, Animes_exibir.titulo
-            FROM Episodios_exibir
-            JOIN Animes_exibir ON Episodios_exibir.anime_id = Animes_exibir.id
-        `, (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
+            // Adicionar o episódio ao anime correspondente
+            animeMap[animeId].episodios.push({
+                id: row.e_id,
+                temporada: row.temporada,
+                numero: row.numero,
+                nome: row.nome,
+                link: row.link,
+                capa_ep: row.capa_ep
+            });
         });
+
+        // Converter o objeto em um array de objetos para enviar como resposta JSON
+        const animes = Object.values(animeMap);
+
+        // Ordenar os episódios de cada anime em ordem crescente pelo número do episódio
+        animes.forEach(anime => {
+            anime.episodios.sort((a, b) => a.numero - b.numero);
+        });
+
+        // Enviar a resposta JSON com os dados organizados
+        res.json(animes);
     });
-    console.log(episodes);
-
-    const results = [];
-    for (const episode of episodes) {
-        const isValid = await checkVideoPlayback(episode.link);
-        const currentTime = new Date().toLocaleString(); // Get current time in local format
-        results.push({ ...episode, valid: isValid });
-
-        if (!isValid) {
-            const reportContent = `Anime: ${episode.titulo}, Episódio: ${episode.nome}, Link: ${episode.link}, Última Verificação: ${currentTime}\n`;
-            fs.appendFileSync(reportPath, reportContent, { flag: 'a' });
-            console.log(`Episódio inválido: ${episode.nome}`);
-        }
-    }
-
-    if (fs.existsSync(reportPath)) {
-        console.log(`Relatório gerado em: ${reportPath}`);
-    } else {
-        console.log('Todos os vídeos são válidos.');
-    }
-
-    res.json(results);
 });
 
-const job = new cron.CronJob('0 0 * * *', async () => {
-    try {
-        console.log('Executando verificação de links...');
-        const response = await fetch(`${vpsUrl}/verificar-links`); // Substitua 'vpsUrl' pela URL do seu servidor
-        const data = await response.json();
-        console.log('Verificação de links concluída:', data);
-    } catch (error) {
-        console.error('Erro ao executar verificação de links:', error);
-    }
-});
-
-// Inicie o job
-job.start();
-
-app.get('/links-invalidos-videos', (req, res) => {
-    try {
-        if (fs.existsSync(reportPath)) {
-            res.download(reportPath, 'links-invalidos-videos.txt');
-        } else {
-            res.status(404).send('Report file not found');
-        }
-    } catch (error) {
-        console.error('Error occurred:', error);
-        res.status(500).send('Internal Server Error');
-    }
-}); //// rota pra baixar logs de videos expirados
 
 // Chama a função verificarLinksExpirados a cada 24 horas (em milissegundos)
 const intervaloVerificacao = 24 * 60 * 60 * 1000; // 24 horas
