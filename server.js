@@ -13,6 +13,8 @@ const { v4: uuidv4 } = require('uuid');
 const config = require('./config');
 const { vpsUrl } = require('./config');
 const compression = require('compression');
+const cron = require('cron');
+const fetch = require('node-fetch');
 
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
@@ -1264,6 +1266,90 @@ app.post('/animes_exibir/:anime_id', (req, res) => {
     });
 }); /// rota pra inserir os detalhes dos animes na tabela 
 
+app.post('/animes_exibir_index', (req, res) => {
+    const { titulo, episodios } = req.body;
+
+    // Verificar se o título do anime já existe na tabela Animes_exibir
+    const consultaTituloExistente = `
+        SELECT COUNT(*) AS count FROM Animes_exibir WHERE titulo = ?
+    `;
+
+    db.get(consultaTituloExistente, [titulo], (err, row) => {
+        if (err) {
+            console.error('Erro ao verificar título do anime:', err.message);
+            res.status(500).send('Erro ao verificar título do anime');
+            return;
+        }
+
+        if (row.count > 0) {
+            console.log('O título do anime já existe na tabela.');
+            res.status(400).send('O título do anime já existe na tabela');
+            return;
+        }
+
+        // Consultar o maior anime_id da tabela Animes_exibir
+        const consultaMaiorAnimeId = `
+            SELECT MAX(CAST(Anime_id AS INTEGER)) AS max_anime_id FROM Animes_exibir
+        `;
+
+        db.get(consultaMaiorAnimeId, (err, row) => {
+            if (err) {
+                console.error('Erro ao consultar o maior anime_id:', err.message);
+                res.status(500).send('Erro ao consultar o maior anime_id');
+                return;
+            }
+
+            let proximoAnimeId;
+            if (row && row.max_anime_id !== null) {
+                proximoAnimeId = parseInt(row.max_anime_id) + 1; // Incrementar o maior Anime_id encontrado em 1
+            } else {
+                proximoAnimeId = 1; // Se não houver nenhum registro, começar com 1
+            }
+
+            // Log dos dados recebidos
+            console.log('Dados recebidos:');
+            console.log('animeId:', proximoAnimeId);
+            console.log('titulo:', titulo);
+            console.log('episodios:', episodios);
+
+            // Inserir informações do anime na tabela Animes_exibir
+            const insertAnimeQuery = `
+                INSERT INTO Animes_exibir (Anime_id, titulo)
+                VALUES (?, ?)
+            `;
+
+            db.run(insertAnimeQuery, [proximoAnimeId, titulo], function(err) {
+                if (err) {
+                    console.error(err.message);
+                    res.status(500).send('Erro ao inserir anime');
+                    return;
+                }
+
+                // Anime inserido com sucesso, agora inserir os episódios relacionados
+                episodios.forEach(episodio => {
+                    const { temporada, episodio: numEpisodio, descricao, link, link_extra } = episodio;
+                    const insertEpisodioQuery = `
+                        INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    `;
+                    const values = [proximoAnimeId, temporada, numEpisodio, descricao, link, link_extra.link_extra_1, link_extra.link_extra_2, link_extra.link_extra_3];
+
+                    db.run(insertEpisodioQuery, values, function(err) {
+                        if (err) {
+                            console.error(err.message);
+                            res.status(500).send('Erro ao inserir episódio');
+                            return;
+                        }
+                    });
+                });
+
+                // Enviar resposta de sucesso após a conclusão da inserção de todos os episódios
+                res.status(200).send('Anime e episódios inseridos com sucesso!');
+            });
+        });
+    });
+});  /// rota criada pra inserir os dados recebido pelo indexer 
+
 app.post('/animes_exibir_editar/:anime_id', (req, res) => {
     const animeId = req.params.anime_id;
     const { titulo, episodios } = req.body;
@@ -1395,28 +1481,6 @@ app.get('/animes/status/:status', (req, res) => {
     });
 }); ///rota pra receber status dos animes que estao em andamentos completos basicamente retorna os animes com base nos status deles
 
-
-function verificarLinksExpirados() {
-    const currentTime = Date.now();
-    db.run("DELETE FROM links WHERE dataExpiracao < ?", [currentTime], (err) => {
-        if (err) {
-            console.error('Erro ao excluir links expirados:', err);
-        } else {
-            console.log('Links expirados foram excluídos com sucesso.');
-
-            // Após excluir os links, chama o vácuo para otimização do banco de dados
-            db.run("VACUUM", [], (vacuumErr) => {
-                if (vacuumErr) {
-                    console.error('Erro ao executar vacuum:', vacuumErr);
-                } else {
-                    console.log('Vácuo executado com sucesso.');
-                }
-            });
-        }
-    });
-}  /// funçao pra excluir link expirados periodicamente
-
-
 app.get('/pesquisa/termo', (req, res) => {
     const searchTerm = req.query.term; // Parâmetro de consulta 'term' na URL
     if (!searchTerm) {
@@ -1450,7 +1514,7 @@ app.get('/pesquisa/termo', (req, res) => {
             if (!animeMap[animeId]) {
                 // Inicializar o objeto do anime
                 animeMap[animeId] = {
-                    id: row.id, // Pode ser útil manter o id do anime aqui se necessário
+                    id: row.anime_id, // Pode ser útil manter o id do anime aqui se necessário
                     capa: row.capa,
                     titulo: row.titulo,
                     tituloAlternativo: row.tituloAlternativo,
@@ -1495,8 +1559,6 @@ app.get('/pesquisa/termo', (req, res) => {
         res.json(animes);
     });
 });
-
-
 
 // Chama a função verificarLinksExpirados a cada 24 horas (em milissegundos)
 const intervaloVerificacao = 24 * 60 * 60 * 1000; // 24 horas
