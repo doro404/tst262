@@ -10,6 +10,7 @@ const https = require('https');
 const fs = require('fs');
 const multer = require('multer');
 const { v4: uuidv4 } = require('uuid');
+const { Builder } = require('xml2js');
 const config = require('./config');
 const { vpsUrl } = require('./config');
 const compression = require('compression');
@@ -1416,6 +1417,95 @@ function verificarLinksExpirados() {
     });
 }  /// funçao pra excluir link expirados periodicamente
 
+
+app.get('/generate-sitemap', (req, res) => {
+    const baseUrl = req.query.url;
+    const type = req.query.type; // 'animes', 'episodes', or 'both'
+
+    if (!baseUrl) {
+        return res.status(400).send('URL base é necessária como parâmetro.');
+    }
+
+    if (!type || !['a', 'e', 't'].includes(type)) {
+        return res.status(400).send('Tipo inválido. Use "animes", "episodios" ou "both".');
+    }
+
+    db.all("SELECT id FROM animes", [], (err, animeRows) => {
+        if (err) {
+            console.error(err);
+            return res.status(500).send('Erro ao consultar o banco de dados.');
+        }
+
+        if (!animeRows.length) {
+            return res.status(404).send('Nenhum anime encontrado no banco de dados.');
+        }
+
+        const urls = [];
+        let processedAnimes = 0;
+
+        animeRows.forEach(anime => {
+            // Adiciona URL do anime se o tipo for 'animes' ou 'both'
+            if (type === 'a' || type === 't') {
+                urls.push({
+                    loc: `${baseUrl}/a?id=${anime.id}`,
+                    changefreq: 'weekly',
+                    priority: 0.8
+                });
+            }
+
+            if (type === 'e' || type === 't') {
+                // Consulta os episódios do anime
+                db.all("SELECT numero FROM episodios WHERE anime_id = ?", [anime.id], (err, episodeRows) => {
+                    if (err) {
+                        console.error(err);
+                        return res.status(500).send('Erro ao consultar os episódios do banco de dados.');
+                    }
+
+                    episodeRows.forEach(episode => {
+                        // Adiciona URLs dos episódios
+                        urls.push({
+                            loc: `${baseUrl}/a?id=${anime.id}&ep=${episode.numero}`,
+                            changefreq: 'weekly',
+                            priority: 0.8
+                        });
+                    });
+
+                    processedAnimes++;
+                    if (processedAnimes === animeRows.length) {
+                        generateSitemap(res, urls);
+                    }
+                });
+            } else {
+                processedAnimes++;
+                if (processedAnimes === animeRows.length) {
+                    generateSitemap(res, urls);
+                }
+            }
+        });
+    });
+});
+
+function generateSitemap(res, urls) {
+    const builder = new Builder();
+    const sitemap = builder.buildObject({
+        urlset: {
+            $: {
+                xmlns: 'http://www.sitemaps.org/schemas/sitemap/0.9'
+            },
+            url: urls
+        }
+    });
+
+    const filePath = 'sitemap.xml';
+    fs.writeFileSync(filePath, sitemap);
+
+    res.download(filePath, 'sitemap.xml', (err) => {
+        if (err) {
+            console.error(err);
+        }
+        fs.unlinkSync(filePath); // Remove o arquivo após o download
+    });
+}
 
 
 app.get('/pesquisa/termo', (req, res) => {
