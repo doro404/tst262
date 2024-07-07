@@ -110,9 +110,8 @@ def calcular_intervalo(num_catologos):
     return intervalo_minutos
 
 # Função principal para iniciar o processo
-def main():
-    # Iniciar o loop asyncio para execução assíncrona
-    loop = asyncio.get_event_loop()
+# Função principal para iniciar o processo
+async def main():
     while True:
         agora = datetime.now()
         # Verificar se é um novo dia (resetar envios enviados)
@@ -121,11 +120,11 @@ def main():
 
         # Verificar se é um horário para enviar os detalhes dos animes lançados hoje
         if agora.hour == 8 and agora.minute == 0:  # Exemplo: Enviar todos os dias às 08:00
-            loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())
+            await enviar_detalhes_animes_lancados_hoje()
 
         # Aguardar 1 minuto antes de verificar novamente
-        asyncio.sleep(60)
+        await asyncio.sleep(60)
 
 # Iniciar o processo
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
