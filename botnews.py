@@ -1,3 +1,5 @@
+
+
 # -- coding: utf-8 --
 
 import asyncio
@@ -59,6 +61,8 @@ async def enviar_detalhes_animes_lancados_hoje():
 
             # Verificar se os dados são uma lista
             if isinstance(data, list) and len(data) > 0:
+                print(f'Encontrados {len(data)} catálogos lançados hoje.')
+
                 # Calcular intervalos de envio baseado no número de catálogos
                 intervalo_minutos = calcular_intervalo(len(data))
 
@@ -91,6 +95,10 @@ async def enviar_detalhes_animes_lancados_hoje():
                             # Adicionar o ID do anime à lista de enviados
                             animes_enviados.add(anime_id)
 
+                            print(f'Enviando catálogo: {anime["titulo"]} - ID: {anime_id}')
+                    else:
+                        print(f'Anime já enviado anteriormente: {anime["titulo"]} - ID: {anime_id}')
+
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
                 print('Nenhum anime lançado hoje ou resposta inválida da rota /animes-lancados-hoje:', data)
@@ -110,17 +118,18 @@ def calcular_intervalo(num_catologos):
     return intervalo_minutos
 
 # Função principal para iniciar o processo
-# Função principal para iniciar o processo
 async def main():
     while True:
         agora = datetime.now()
         # Verificar se é um novo dia (resetar envios enviados)
         if agora.hour == 0 and agora.minute == 0:
             animes_enviados.clear()
+            print('Resetando lista de animes enviados.')
 
         # Verificar se é um horário para enviar os detalhes dos animes lançados hoje
         if agora.hour == 8 and agora.minute == 0:  # Exemplo: Enviar todos os dias às 08:00
             await enviar_detalhes_animes_lancados_hoje()
+            print('Programado envio dos detalhes dos animes lançados hoje.')
 
         # Aguardar 1 minuto antes de verificar novamente
         await asyncio.sleep(60)
