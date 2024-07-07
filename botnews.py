@@ -1,7 +1,7 @@
 # -- coding: utf-8 --
 import asyncio
 import requests
-from telegram import Bot
+from telegram import Bot, ParseMode
 
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
@@ -12,7 +12,9 @@ channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 # Função assíncrona para enviar uma mensagem para o canal no Telegram
 async def enviar_mensagem_no_canal(mensagem, url_imagem):
     bot = Bot(token=bot_token)
-    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, parse_mode='MarkdownV2')
+    # Escapando caracteres especiais que o Telegram interpreta como Markdown
+    mensagem_formatada = mensagem.replace('.', r'\.')
+    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem_formatada, parse_mode=ParseMode.MARKDOWN_V2)
 
 # Função para baixar a imagem de capa
 def baixar_imagem(url):
