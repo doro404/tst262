@@ -9,10 +9,10 @@ bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo s
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
 channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 
-# Função assíncrona para enviar uma mensagem para o canal no Telegram
-async def enviar_mensagem_no_canal(mensagem):
+# Função para enviar uma mensagem para o canal no Telegram
+def enviar_mensagem_no_canal(mensagem):
     bot = Bot(token=bot_token)
-    await bot.send_message(chat_id=channel_id, text=mensagem)
+    bot.send_message(chat_id=channel_id, text=mensagem)
 
 # Função para buscar e enviar detalhes dos animes lançados hoje
 async def enviar_detalhes_animes_lancados_hoje():
@@ -39,7 +39,7 @@ async def enviar_detalhes_animes_lancados_hoje():
                                     sinopse=anime["sinopse"])
 
                     # Enviar mensagem para o canal no Telegram
-                    await enviar_mensagem_no_canal(mensagem)
+                    enviar_mensagem_no_canal(mensagem)
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
@@ -49,10 +49,11 @@ async def enviar_detalhes_animes_lancados_hoje():
     except Exception as e:
         print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
 
-# Função principal para iniciar o processo assíncrono
-async def main():
-    await enviar_detalhes_animes_lancados_hoje()
+# Função principal para iniciar o processo
+def main():
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())
 
-# Iniciar o loop de eventos assíncronos
+# Iniciar o processo
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
