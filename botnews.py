@@ -1,10 +1,13 @@
+
+
 # -- coding: utf-8 --
 import asyncio
 import requests
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
+from uuid import uuid4
 
 # Token do seu bot obtido do BotFather
-bot_token = 'SEU_TOKEN_AQUI'  # Substitua pelo seu token do BotFather
+bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
 
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
 channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
@@ -23,8 +26,7 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
         [[InlineKeyboardButton(button_text, url=button_url)]]
     )
 
-    # Adicionar um botão de resposta
-    mensagem = f'{mensagem}\n\nPara comentar, clique em Responder abaixo.'
+    # Enviar foto com a mensagem e o botão inline
     await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
 # Função para baixar a imagem de capa
