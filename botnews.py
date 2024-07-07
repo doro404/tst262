@@ -1,7 +1,10 @@
+
+
 # -- coding: utf-8 --
 import asyncio
 import requests
-from telegram import Bot
+from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
+from uuid import uuid4
 
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
@@ -9,11 +12,22 @@ bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo s
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
 channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 
+# URL base para assistir ao anime
+assistir_url_base = 'https://animesonlinebr.fun/a?id='
+
 # Função assíncrona para enviar uma mensagem para o canal no Telegram
-async def enviar_mensagem_no_canal(mensagem, url_imagem):
+async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
     bot = Bot(token=bot_token)
-    # Enviar foto com a mensagem simples (sem formatação Markdown)
-    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem)
+
+    # Criar o botão inline "Assista Aqui"
+    button_text = 'Assista Aqui'
+    button_url = f'{assistir_url_base}{anime_id}'
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(button_text, url=button_url)]]
+    )
+
+    # Enviar foto com a mensagem e o botão inline
+    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
 # Função para baixar a imagem de capa
 def baixar_imagem(url):
@@ -55,7 +69,7 @@ async def enviar_detalhes_animes_lancados_hoje():
                         )
 
                         # Enviar mensagem para o canal no Telegram
-                        await enviar_mensagem_no_canal(mensagem, imagem)
+                        await enviar_mensagem_no_canal(mensagem, imagem, anime['id'])
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
@@ -73,4 +87,3 @@ def main():
 # Iniciar o processo
 if __name__ == '__main__':
     main()
-
