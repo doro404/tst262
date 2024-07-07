@@ -1,13 +1,15 @@
+
+
+
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 
 // Token do seu bot obtido do BotFather
-const botToken = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU';
+const botToken = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'; // Substitua pelo seu token do BotFather
 
 // ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
-const channelId = '@canalontste0';
+const channelId = '@canalontste0'; // Substitua pelo ID do seu canal
 
-// Criação de um bot que usará o token fornecido
 // Criação de um bot que usará o token fornecido
 const bot = new TelegramBot(botToken, { polling: false }); // Não usar polling para tarefas automáticas
 
