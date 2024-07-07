@@ -1,12 +1,9 @@
-
-
 # -- coding: utf-8 --
 
 import asyncio
 import requests
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from datetime import datetime, timedelta
-import random
+from datetime import datetime
 
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
@@ -58,6 +55,7 @@ async def enviar_detalhes_animes_lancados_hoje():
         # Verificar se a resposta contém dados válidos
         if response.status_code == 200:
             data = response.json()
+            print(f'Recebido status da API: {response.status_code}')
 
             # Verificar se os dados são uma lista
             if isinstance(data, list) and len(data) > 0:
@@ -65,6 +63,7 @@ async def enviar_detalhes_animes_lancados_hoje():
 
                 # Calcular intervalos de envio baseado no número de catálogos
                 intervalo_minutos = calcular_intervalo(len(data))
+                print(f'Intervalo calculado: {intervalo_minutos} minutos')
 
                 # Iterar sobre os animes retornados
                 for anime in data:
@@ -136,4 +135,10 @@ async def main():
 
 # Iniciar o processo
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print('Script interrompido manualmente.')
+    except Exception as e:
+        print(f'Ocorreu um erro durante a execução do script: {str(e)}')
+
