@@ -1,6 +1,7 @@
 # -- coding: utf-8 --
 import asyncio
 import requests
+import html
 from telegram import Bot
 
 # Token do seu bot obtido do BotFather
@@ -12,6 +13,8 @@ channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 # Função assíncrona para enviar uma mensagem para o canal no Telegram
 async def enviar_mensagem_no_canal(mensagem, url_imagem):
     bot = Bot(token=bot_token)
+    # Escapar caracteres especiais que são reservados em Markdown
+    mensagem = html.escape(mensagem)
     # Enviar foto com a mensagem formatada usando Markdown V2
     await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, parse_mode='MarkdownV2')
 
