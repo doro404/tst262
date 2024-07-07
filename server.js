@@ -1587,6 +1587,96 @@ app.get('/pesquisa/termo', (req, res) => {
     });
 });
 
+app.get('/animes-lancados-hoje', (req, res) => {
+    const hoje = new Date().toISOString().split('T')[0]; // Data atual no formato YYYY-MM-DD
+
+    const query = `
+        SELECT 
+            a.id,
+            a.capa,
+            a.titulo,
+            a.tituloAlternativo,
+            a.selo,
+            a.sinopse,
+            a.genero,
+            a.classificacao,
+            a.status,
+            a.qntd_temporadas,
+            a.anoLancamento,
+            a.dataPostagem,
+            a.ovas,
+            a.filmes,
+            a.estudio,
+            a.diretor,
+            a.tipoMidia,
+            e.temporada,
+            e.numero,
+            e.nome AS nome_episodio,
+            e.link,
+            e.capa_ep,
+            a.visualizacoes AS visualizacoes
+        FROM 
+            animes a
+        LEFT JOIN 
+            episodios e ON a.id = e.anime_id
+        WHERE 
+            a.dataPostagem = ?;
+    `;
+
+    db.all(query, [hoje], (err, rows) => {
+        if (err) {
+            console.error(err);
+            res.status(500).json({ error: 'Erro ao buscar animes lançados hoje' });
+            return;
+        }
+
+        // Organizar os dados em um formato mais adequado, se necessário
+        const animesCompletos = {};
+
+        rows.forEach(row => {
+            if (!animesCompletos[row.id]) {
+                animesCompletos[row.id] = {
+                    id: row.id,
+                    capa: row.capa,
+                    titulo: row.titulo,
+                    tituloAlternativo: row.tituloAlternativo,
+                    selo: row.selo,
+                    sinopse: row.sinopse,
+                    genero: row.genero,
+                    classificacao: row.classificacao,
+                    status: row.status,
+                    qntd_temporadas: row.qntd_temporadas,
+                    anoLancamento: row.anoLancamento,
+                    dataPostagem: row.dataPostagem,
+                    ovas: row.ovas,
+                    filmes: row.filmes,
+                    estudio: row.estudio,
+                    diretor: row.diretor,
+                    tipoMidia: row.tipoMidia,
+                    visualizacoes: row.visualizacoes,
+                    episodios: []
+                };
+            }
+
+            // Adicionar os episódios associados ao anime
+            if (row.temporada && row.numero) {
+                animesCompletos[row.id].episodios.push({
+                    temporada: row.temporada,
+                    numero: row.numero,
+                    nome: row.nome_episodio,
+                    link: row.link,
+                    capa_ep: row.capa_ep
+                });
+            }
+        });
+
+        // Converter o objeto em um array de animes completos
+        const result = Object.values(animesCompletos);
+
+        res.json(result);
+    });
+});
+
 
 // Chama a função verificarLinksExpirados a cada 24 horas (em milissegundos)
 const intervaloVerificacao = 24 * 60 * 60 * 1000; // 24 horas
