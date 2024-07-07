@@ -15,6 +15,9 @@ channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 # URL base para assistir ao anime
 assistir_url_base = 'https://animesonlinebr.fun/a?id='
 
+# Lista para armazenar IDs de animes já enviados
+animes_enviados = set()
+
 # Função assíncrona para enviar uma mensagem para o canal no Telegram
 async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
     bot = Bot(token=bot_token)
@@ -44,6 +47,8 @@ def baixar_imagem(url):
 
 # Função para buscar e enviar detalhes dos animes lançados hoje
 async def enviar_detalhes_animes_lancados_hoje():
+    global animes_enviados  # Acessar a variável global animes_enviados
+
     try:
         # Realizar uma solicitação GET para a rota /animes-lancados-hoje da sua aplicação
         response = requests.get('https://saikanet.online:3000/animes-lancados-hoje')
@@ -56,24 +61,31 @@ async def enviar_detalhes_animes_lancados_hoje():
             if isinstance(data, list):
                 # Iterar sobre os animes retornados
                 for anime in data:
-                    # Baixar a imagem de capa
-                    imagem = baixar_imagem(anime['capa'])
-                    if imagem:
-                        # Formatar a mensagem com os detalhes do anime e o link da capa
-                        mensagem = (
-                            f'📺 Detalhes do Anime: {anime["titulo"]}\n\n'
-                            f'🎬 Título: {anime["titulo"]}\n'
-                            f'🏷️ Selo: {anime["selo"]}\n'
-                            f'📝 Sinopse: {anime["sinopse"]}\n\n'
-                            f'🎨 Estúdio: {anime["estudio"]}\n'
-                            f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
-                            f'🎭 Gênero: {anime["genero"]}\n'
-                            f'🔞 Classificação: {anime["classificacao"]}\n'
-                            f'📅 Ano de Lançamento: {anime["anoLancamento"]}\n\n'
-                        )
+                    anime_id = anime['id']
 
-                        # Enviar mensagem para o canal no Telegram
-                        await enviar_mensagem_no_canal(mensagem, imagem, anime['id'])
+                    # Verificar se o anime já foi enviado anteriormente
+                    if anime_id not in animes_enviados:
+                        # Baixar a imagem de capa
+                        imagem = baixar_imagem(anime['capa'])
+                        if imagem:
+                            # Formatar a mensagem com os detalhes do anime e o link da capa
+                            mensagem = (
+                                f'📺 Detalhes do Anime: {anime["titulo"]}\n\n'
+                                f'🎬 Título: {anime["titulo"]}\n'
+                                f'🏷️ Selo: {anime["selo"]}\n'
+                                f'🎨 Estúdio: {anime["estudio"]}\n'
+                                f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
+                                f'🎭 Gênero: {anime["genero"]}\n'
+                                f'🔞 Classificação: {anime["classificacao"]}\n'
+                                f'📅 Ano de Lançamento: {anime["anoLancamento"]}\n\n'
+                                f'📝 Sinopse: {anime["sinopse"]}\n\n'
+                            )
+
+                            # Enviar mensagem para o canal no Telegram
+                            await enviar_mensagem_no_canal(mensagem, imagem, anime_id)
+
+                            # Adicionar o ID do anime à lista de enviados
+                            animes_enviados.add(anime_id)
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
@@ -85,6 +97,7 @@ async def enviar_detalhes_animes_lancados_hoje():
 
 # Função principal para iniciar o processo
 def main():
+    # Iniciar o loop asyncio para execução assíncrona
     loop = asyncio.get_event_loop()
     loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())
 
