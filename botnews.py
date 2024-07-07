@@ -1,8 +1,10 @@
 # -- coding: utf-8 --
+
 import asyncio
 import requests
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from uuid import uuid4
+from datetime import datetime, timedelta
+import random
 
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
@@ -56,8 +58,10 @@ async def enviar_detalhes_animes_lancados_hoje():
             data = response.json()
 
             # Verificar se os dados são uma lista
-            if isinstance(data, list):
-                tarefas = []
+            if isinstance(data, list) and len(data) > 0:
+                # Calcular intervalos de envio baseado no número de catálogos
+                intervalo_minutos = calcular_intervalo(len(data))
+
                 # Iterar sobre os animes retornados
                 for anime in data:
                     anime_id = anime['id']
@@ -80,28 +84,47 @@ async def enviar_detalhes_animes_lancados_hoje():
                                 f'📝 Sinopse: {anime["sinopse"]}\n\n'
                             )
 
-                            # Adicionar a tarefa de envio ao array de tarefas
-                            tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
+                            # Enviar mensagem após um atraso calculado
+                            await asyncio.sleep(intervalo_minutos * 60)
+                            await enviar_mensagem_no_canal(mensagem, imagem, anime_id)
 
                             # Adicionar o ID do anime à lista de enviados
                             animes_enviados.add(anime_id)
-                
-                # Executar todas as tarefas de envio simultaneamente
-                await asyncio.gather(*tarefas)
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
-                print('Resposta inválida da rota /animes-lancados-hoje:', data)
+                print('Nenhum anime lançado hoje ou resposta inválida da rota /animes-lancados-hoje:', data)
         else:
             print('Erro ao buscar detalhes dos animes lançados hoje:', response.status_code)
     except Exception as e:
         print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
 
+# Função para calcular o intervalo dinâmico baseado no número de catálogos
+def calcular_intervalo(num_catologos):
+    # Definir um intervalo base mínimo (em minutos)
+    intervalo_base = 30  # Por exemplo, iniciar com um intervalo de 30 minutos
+
+    # Ajustar o intervalo conforme o número de catálogos
+    intervalo_minutos = max(intervalo_base / num_catologos, 5)  # Intervalo mínimo de 5 minutos
+
+    return intervalo_minutos
+
 # Função principal para iniciar o processo
 def main():
     # Iniciar o loop asyncio para execução assíncrona
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())
+    while True:
+        agora = datetime.now()
+        # Verificar se é um novo dia (resetar envios enviados)
+        if agora.hour == 0 and agora.minute == 0:
+            animes_enviados.clear()
+
+        # Verificar se é um horário para enviar os detalhes dos animes lançados hoje
+        if agora.hour == 8 and agora.minute == 0:  # Exemplo: Enviar todos os dias às 08:00
+            loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())
+
+        # Aguardar 1 minuto antes de verificar novamente
+        asyncio.sleep(60)
 
 # Iniciar o processo
 if __name__ == '__main__':
