@@ -1,5 +1,3 @@
-
-
 # -- coding: utf-8 --
 import asyncio
 import requests
@@ -59,6 +57,7 @@ async def enviar_detalhes_animes_lancados_hoje():
 
             # Verificar se os dados são uma lista
             if isinstance(data, list):
+                tarefas = []
                 # Iterar sobre os animes retornados
                 for anime in data:
                     anime_id = anime['id']
@@ -81,11 +80,14 @@ async def enviar_detalhes_animes_lancados_hoje():
                                 f'📝 Sinopse: {anime["sinopse"]}\n\n'
                             )
 
-                            # Enviar mensagem para o canal no Telegram
-                            await enviar_mensagem_no_canal(mensagem, imagem, anime_id)
+                            # Adicionar a tarefa de envio ao array de tarefas
+                            tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
 
                             # Adicionar o ID do anime à lista de enviados
                             animes_enviados.add(anime_id)
+                
+                # Executar todas as tarefas de envio simultaneamente
+                await asyncio.gather(*tarefas)
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
