@@ -28,11 +28,14 @@ def enviar_detalhes_animes_lancados_hoje():
                 # Iterar sobre os animes retornados
                 for anime in data:
                     # Formatar a mensagem com os detalhes do anime
-                    mensagem = f'📺 *Detalhes do Anime: {anime["titulo"]}*\n\n'
-                    mensagem += f'*Título:* {anime["titulo"]}\n'
-                    mensagem += f'*Selo:* {anime["selo"]}\n'
-                    mensagem += f'*Sinopse:* {anime["sinopse"]}\n\n'
-                    mensagem += 'Mais detalhes: Insira o link aqui'  # Substitua pelo link apropriado
+                    mensagem = ('📺 *Detalhes do Anime: {titulo}*\n\n'
+                                '*Título:* {titulo}\n'
+                                '*Selo:* {selo}\n'
+                                '*Sinopse:* {sinopse}\n\n'
+                                'Mais detalhes: Insira o link aqui').format(
+                                    titulo=anime["titulo"],
+                                    selo=anime["selo"],
+                                    sinopse=anime["sinopse"])
 
                     # Enviar mensagem para o canal no Telegram
                     enviar_mensagem_no_canal(mensagem)
