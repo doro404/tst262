@@ -2,7 +2,7 @@
 
 
 const TelegramBot = require('node-telegram-bot-api');
-const axios = require('axios');
+const fetch = require('node-fetch');
 
 // Token do seu bot obtido do BotFather
 const botToken = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'; // Substitua pelo seu token do BotFather
@@ -28,12 +28,13 @@ function enviarMensagemNoCanal(mensagem) {
 async function enviarDetalhesAnimesLancadosHoje() {
     try {
         // Realizar uma solicitação GET para a rota /animes-lancados-hoje da sua aplicação Express
-        const response = await axios.get('https://saikanet.online:3000/animes-lancados-hoje'); // Substitua pela URL correta da sua rota
+        const response = await fetch('https://saikanet.online:3000/animes-lancados-hoje');
+        const data = await response.json();
 
         // Verificar se a resposta contém dados válidos
-        if (response.data && Array.isArray(response.data)) {
+        if (Array.isArray(data)) {
             // Iterar sobre os animes retornados
-            response.data.forEach(anime => {
+            data.forEach(anime => {
                 // Formatar a mensagem com os detalhes do anime
                 let mensagem = `📺 *Detalhes do Anime: ${anime.titulo}*\n\n`;
                 mensagem += `*Título:* ${anime.titulo}\n`;
@@ -47,7 +48,7 @@ async function enviarDetalhesAnimesLancadosHoje() {
 
             console.log('Detalhes dos animes lançados hoje enviados com sucesso para o canal!');
         } else {
-            console.error('Resposta inválida da rota /animes-lancados-hoje:', response.data);
+            console.error('Resposta inválida da rota /animes-lancados-hoje:', data);
         }
     } catch (error) {
         console.error('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', error.message);
