@@ -9,10 +9,10 @@ bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo s
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
 channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
 
-# Função para enviar uma mensagem para o canal no Telegram
-def enviar_mensagem_no_canal(mensagem):
+# Função assíncrona para enviar uma mensagem para o canal no Telegram
+async def enviar_mensagem_no_canal(mensagem):
     bot = Bot(token=bot_token)
-    bot.send_message(chat_id=channel_id, text=mensagem)
+    await bot.send_message(chat_id=channel_id, text=mensagem)  # Aguarda a conclusão da função assíncrona
 
 # Função para buscar e enviar detalhes dos animes lançados hoje
 async def enviar_detalhes_animes_lancados_hoje():
@@ -39,7 +39,7 @@ async def enviar_detalhes_animes_lancados_hoje():
                                     sinopse=anime["sinopse"])
 
                     # Enviar mensagem para o canal no Telegram
-                    enviar_mensagem_no_canal(mensagem)
+                    await enviar_mensagem_no_canal(mensagem)  # Aguarda a conclusão da função assíncrona
 
                 print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
             else:
