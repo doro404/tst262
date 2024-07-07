@@ -8,7 +8,7 @@ from uuid import uuid4
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
 
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
-channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
+channel_id = '@sousoanimes'  # Substitua pelo ID do seu canal
 
 # URL base para assistir ao anime
 assistir_url_base = 'https://animesonlinebr.fun/a?id='
