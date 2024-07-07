@@ -1,13 +1,10 @@
-
-
 # -- coding: utf-8 --
 import asyncio
 import requests
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from uuid import uuid4
 
 # Token do seu bot obtido do BotFather
-bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
+bot_token = 'SEU_TOKEN_AQUI'  # Substitua pelo seu token do BotFather
 
 # ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
 channel_id = '@canalontste0'  # Substitua pelo ID do seu canal
@@ -26,7 +23,8 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
         [[InlineKeyboardButton(button_text, url=button_url)]]
     )
 
-    # Enviar foto com a mensagem e o botão inline
+    # Adicionar um botão de resposta
+    mensagem = f'{mensagem}\n\nPara comentar, clique em Responder abaixo.'
     await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
 # Função para baixar a imagem de capa
@@ -61,11 +59,15 @@ async def enviar_detalhes_animes_lancados_hoje():
                     if imagem:
                         # Formatar a mensagem com os detalhes do anime e o link da capa
                         mensagem = (
-                            f'Detalhes do Anime: {anime["titulo"]}\n\n'
-                            f'Título: {anime["titulo"]}\n'
-                            f'Selo: {anime["selo"]}\n'
-                            f'Sinopse: {anime["sinopse"]}\n\n'
-                            f'Mais detalhes: Insira o link aqui'
+                            f'📺 Detalhes do Anime: {anime["titulo"]}\n\n'
+                            f'🎬 Título: {anime["titulo"]}\n'
+                            f'🏷️ Selo: {anime["selo"]}\n'
+                            f'📝 Sinopse: {anime["sinopse"]}\n\n'
+                            f'🎨 Estúdio: {anime["estudio"]}\n'
+                            f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
+                            f'🎭 Gênero: {anime["genero"]}\n'
+                            f'🔞 Classificação: {anime["classificacao"]}\n'
+                            f'📅 Ano de Lançamento: {anime["anoLancamento"]}\n\n'
                         )
 
                         # Enviar mensagem para o canal no Telegram
