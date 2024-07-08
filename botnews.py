@@ -26,6 +26,10 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
         [[InlineKeyboardButton(button_text, url=button_url)]]
     )
 
+    # Truncar a mensagem se for muito longa
+    if len(mensagem) > 1024:
+        mensagem = mensagem[:1020] + '...'
+
     # Enviar foto com a mensagem e o botão inline
     await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
@@ -100,6 +104,44 @@ async def enviar_detalhes_animes_lancados_hoje():
                                 f'🎬 Título: {anime["titulo"]}\n'
                                 f'🏷️ Selo: {anime["selo"]}\n'
                                 f'🎨 Estúdio: {anime["estudio"]}\n'
+                                f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
+                                f'🎭 Gênero: {anime["genero"]}\n'
+                                f'🔞 Classificação: {anime["classificacao"]}\n'
+                                f'📅 Ano de Lançamento: {anime["anoLancamento"]}\n\n'
+                                f'📝 Sinopse: {anime["sinopse"]}\n\n'
+                            )
+
+                            # Adicionar a tarefa de envio ao array de tarefas
+                            tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
+
+                            # Marcar o anime como enviado
+                            marcar_anime_como_enviado(anime_id)
+                
+                # Executar todas as tarefas de envio simultaneamente
+                await asyncio.gather(*tarefas)
+
+                print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
+            else:
+                print('Resposta inválida da rota /animes-lancados-hoje:', data)
+        else:
+            print('Erro ao buscar detalhes dos animes lançados hoje:', response.status_code)
+    except Exception as e:
+        print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
+
+# Função principal para iniciar o processo
+async def main():
+    print('Iniciando verificação imediata dos animes lançados hoje...')
+    await enviar_detalhes_animes_lancados_hoje()
+    print('Verificação imediata concluída.')
+    
+    while True:
+        await enviar_detalhes_animes_lancados_hoje()
+        # Esperar por uma hora antes de verificar novamente
+        await asyncio.sleep(3600)
+
+if __name__ == '__main__':
+    configurar_banco_de_dados()
+    asyncio.run(main())
                                 f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
                                 f'🎭 Gênero: {anime["genero"]}\n'
                                 f'🔞 Classificação: {anime["classificacao"]}\n'
