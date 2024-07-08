@@ -3,10 +3,8 @@
 import asyncio
 import requests
 from telegram import Bot, InlineKeyboardMarkup, InlineKeyboardButton
-from uuid import uuid4
 import sqlite3
-from datetime import datetime, timedelta
-import time
+from datetime import datetime
 
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
@@ -83,7 +81,6 @@ async def enviar_detalhes_animes_lancados_hoje():
         # Verificar se a resposta contém dados válidos
         if response.status_code == 200:
             data = response.json()
-            print(f'Recebido status da API: {response.status_code}')
 
             # Verificar se os dados são uma lista
             if isinstance(data, list):
@@ -129,26 +126,15 @@ async def enviar_detalhes_animes_lancados_hoje():
 
 # Função principal para iniciar o processo
 async def main():
+    print('Iniciando verificação imediata dos animes lançados hoje...')
+    await enviar_detalhes_animes_lancados_hoje()
+    print('Verificação imediata concluída.')
+    
     while True:
-        agora = datetime.now()
-        # Verificar se é um novo dia (resetar envios enviados)
-        if agora.hour == 0 and agora.minute == 0:
-            conn = sqlite3.connect('animes.db')
-            cursor = conn.cursor()
-            cursor.execute('DELETE FROM animes_enviados')
-            conn.commit()
-            conn.close()
-            print('Resetando lista de animes enviados.')
-
-        # Verificar se é um horário para enviar os detalhes dos animes lançados hoje
-        if agora.hour == 8 and agora.minute == 0:  # Exemplo: Enviar todos os dias às 08:00
-            await enviar_detalhes_animes_lancados_hoje()
-            print('Programado envio dos detalhes dos animes lançados hoje.')
-
-        # Aguardar 1 minuto antes de verificar novamente
-        await asyncio.sleep(60)
+        await enviar_detalhes_animes_lancados_hoje()
+        # Esperar por uma hora antes de verificar novamente
+        await asyncio.sleep(3600)
 
 if __name__ == '__main__':
     configurar_banco_de_dados()
     asyncio.run(main())
-
