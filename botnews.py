@@ -151,3 +151,4 @@ async def main():
 if __name__ == '__main__':
     configurar_banco_de_dados()
     asyncio.run(main())
+
