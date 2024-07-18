@@ -1396,28 +1396,6 @@ app.get('/animes/status/:status', (req, res) => {
     });
 }); ///rota pra receber status dos animes que estao em andamentos completos basicamente retorna os animes com base nos status deles
 
-
-function verificarLinksExpirados() {
-    const currentTime = Date.now();
-    db.run("DELETE FROM links WHERE dataExpiracao < ?", [currentTime], (err) => {
-        if (err) {
-            console.error('Erro ao excluir links expirados:', err);
-        } else {
-            console.log('Links expirados foram excluídos com sucesso.');
-
-            // Após excluir os links, chama o vácuo para otimização do banco de dados
-            db.run("VACUUM", [], (vacuumErr) => {
-                if (vacuumErr) {
-                    console.error('Erro ao executar vacuum:', vacuumErr);
-                } else {
-                    console.log('Vácuo executado com sucesso.');
-                }
-            });
-        }
-    });
-}  /// funçao pra excluir link expirados periodicamente
-
-
 app.get('/generate-sitemap', (req, res) => {
     const baseUrl = req.query.url;
     const type = req.query.type; // 'animes', 'episodes', or 'both'
@@ -1507,7 +1485,6 @@ function generateSitemap(res, urls) {
     });
 }
 
-
 app.get('/pesquisa/termo', (req, res) => {
     const searchTerm = req.query.term; // Parâmetro de consulta 'term' na URL
     if (!searchTerm) {
@@ -1584,6 +1561,73 @@ app.get('/pesquisa/termo', (req, res) => {
 
         // Enviar a resposta JSON com os dados organizados
         res.json(animes);
+    });
+});
+
+app.get('/animesRecentes', (req, res) => {
+    const query = `
+        SELECT 
+            a.id,
+            a.capa,
+            a.titulo,
+            a.tituloAlternativo,
+            a.selo,
+            a.sinopse,
+            a.genero,
+            a.classificacao,
+            a.status,
+            a.qntd_temporadas,
+            a.anoLancamento,
+            a.dataPostagem,
+            a.ovas,
+            a.filmes,
+            a.estudio,
+            a.diretor,
+            a.tipoMidia,
+            a.visualizacoes AS visualizacoes
+        FROM 
+            animes a
+        WHERE 
+            a.dataPostagem <= date('now')  -- Garante que a data de postagem é menor ou igual à data atual
+        ORDER BY a.dataPostagem DESC
+        LIMIT 35; // Limita a consulta aos últimos 35 resultados
+    `;
+
+    db.all(query, (error, rows) => {
+        if (error) {
+            console.error('Erro ao selecionar os dados dos animes recentes:', error);
+            return res.status(500).send('Erro ao selecionar os dados dos animes recentes do banco de dados.');
+        }
+
+        // Mapeie os resultados para formatar os dados conforme desejado
+        const animes = [];
+
+        rows.forEach(row => {
+            const anime = {
+                id: row.id,
+                capa: row.capa,
+                titulo: row.titulo,
+                tituloAlternativo: row.tituloAlternativo,
+                selo: row.selo,
+                sinopse: row.sinopse,
+                generos: row.genero ? row.genero.split(',') : [],
+                classificacao: row.classificacao,
+                status: row.status,
+                qntd_temporadas: row.qntd_temporadas,
+                anoLancamento: row.anoLancamento,
+                dataPostagem: row.dataPostagem,
+                ovas: row.ovas,
+                filmes: row.filmes,
+                estudio: row.estudio,
+                diretor: row.diretor,
+                tipoMidia: row.tipoMidia,
+                visualizacoes: row.visualizacoes,
+            };
+
+            animes.push(anime);
+        });
+
+        res.status(200).json(animes);
     });
 });
 
@@ -1676,11 +1720,83 @@ app.get('/animes-lancados-hoje', (req, res) => {
         res.json(result);
     });
 });
+app.post('/enviarAviso', (req, res) => {
+    const { titulo, conteudo } = req.body;
 
+    // Validação simples dos dados recebidos
+    if (!titulo || !conteudo) {
+        return res.status(400).json({ error: 'Título e conteúdo são obrigatórios.' });
+    }
 
-// Chama a função verificarLinksExpirados a cada 24 horas (em milissegundos)
-const intervaloVerificacao = 24 * 60 * 60 * 1000; // 24 horas
-setInterval(verificarLinksExpirados, intervaloVerificacao);
+    // Verifica se já existe um aviso ativo
+    db.get('SELECT id FROM avisos WHERE ativo = 1', (error, row) => {
+        if (error) {
+            console.error('Erro ao verificar aviso ativo:', error.message);
+            return res.status(500).json({ error: 'Erro ao verificar aviso ativo no banco de dados.' });
+        }
+
+        if (row) {
+            // Se existe um aviso ativo, atualiza-o
+            const updateQuery = `
+                UPDATE avisos
+                SET titulo = ?,
+                    conteudo = ?,
+                    dataHoraPostagem = CURRENT_TIMESTAMP,
+                    ativo = 1
+                WHERE id = ?
+            `;
+            const updateValues = [titulo, conteudo, row.id];
+
+            db.run(updateQuery, updateValues, function(updateError) {
+                if (updateError) {
+                    console.error('Erro ao atualizar aviso:', updateError.message);
+                    return res.status(500).json({ error: 'Erro ao atualizar aviso no banco de dados.' });
+                } 
+                
+                // Retorna o ID do aviso atualizado
+                res.json({ id: row.id, titulo, conteudo });
+            });
+        } else {
+            // Se não existe um aviso ativo, insere um novo
+            const insertQuery = `
+                INSERT INTO avisos (titulo, conteudo)
+                VALUES (?, ?)
+            `;
+            const insertValues = [titulo, conteudo];
+
+            db.run(insertQuery, insertValues, function(insertError) {
+                if (insertError) {
+                    console.error('Erro ao inserir aviso:', insertError.message);
+                    return res.status(500).json({ error: 'Erro ao inserir aviso no banco de dados.' });
+                }
+                
+                // Retorna o ID do aviso inserido
+                res.json({ id: this.lastID, titulo, conteudo });
+            });
+        }
+    });
+});
+
+app.get('/avisoAtivo', (req, res) => {
+    const query = `
+        SELECT id, titulo, conteudo, dataHoraPostagem
+        FROM avisos
+        WHERE ativo = 1
+    `;
+
+    db.get(query, (error, row) => {
+        if (error) {
+            console.error('Erro ao selecionar aviso ativo:', error.message);
+            return res.status(500).json({ error: 'Erro ao selecionar aviso ativo do banco de dados.' });
+        }
+
+        if (!row) {
+            return res.status(404).json({ message: 'Nenhum aviso ativo encontrado.' });
+        }
+
+        res.json(row);
+    });
+});
 
 /// Iniciar o servidor
 https.createServer(httpsOptions, app).listen(PORT, () => {
