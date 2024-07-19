@@ -1565,99 +1565,139 @@ app.get('/pesquisa/termo', (req, res) => {
 });
 
 app.get('/animesRecentes', (req, res) => {
-    const query = `
-        SELECT 
-            a.id,
-            a.capa,
-            a.titulo,
-            a.tituloAlternativo,
-            a.selo,
-            a.sinopse,
-            a.genero,
-            a.classificacao,
-            a.status,
-            a.qntd_temporadas,
-            a.anoLancamento,
-            a.dataPostagem,
-            a.ovas,
-            a.filmes,
-            a.estudio,
-            a.diretor,
-            a.tipoMidia,
-            a.visualizacoes,
-            e.id AS episodio_id,
-            e.temporada,
-            e.numero,
-            e.nome AS nome_episodio,
-            e.link,
-            e.capa_ep
+    // Passo 1: Obter os IDs dos animes que têm episódios
+    const queryAnimeIdsWithEpisodes = `
+        SELECT DISTINCT
+            a.id
         FROM 
             animes a
-        LEFT JOIN 
+        JOIN 
             episodios e ON a.id = e.anime_id
+        WHERE
+            a.dataPostagem IS NOT NULL
         ORDER BY 
             a.dataPostagem DESC
     `;
 
-    db.all(query, (error, rows) => {
+    db.all(queryAnimeIdsWithEpisodes, (error, animeIdsRows) => {
         if (error) {
-            console.error('Erro ao selecionar os dados dos animes recentes:', error);
-            return res.status(500).send('Erro ao selecionar os dados dos animes recentes do banco de dados.');
+            console.error('Erro ao selecionar os IDs dos animes com episódios:', error);
+            return res.status(500).send('Erro ao selecionar os IDs dos animes com episódios do banco de dados.');
         }
 
-        const animes = {};
-        const animesComEpisodios = [];
+        // Obter os primeiros 35 IDs dos animes mais recentes com episódios
+        const animeIds = animeIdsRows.map(row => row.id).slice(0, 35);
 
-        rows.forEach(row => {
-            if (!animes[row.id]) {
-                animes[row.id] = {
-                    id: row.id,
-                    capa: row.capa,
-                    titulo: row.titulo,
-                    tituloAlternativo: row.tituloAlternativo,
-                    selo: row.selo,
-                    sinopse: row.sinopse,
-                    generos: row.genero ? row.genero.split(',') : [],
-                    classificacao: row.classificacao,
-                    status: row.status,
-                    qntd_temporadas: row.qntd_temporadas,
-                    anoLancamento: row.anoLancamento,
-                    dataPostagem: row.dataPostagem,
-                    ovas: row.ovas,
-                    filmes: row.filmes,
-                    estudio: row.estudio,
-                    diretor: row.diretor,
-                    tipoMidia: row.tipoMidia,
-                    visualizacoes: row.visualizacoes,
-                    episodios: []
-                };
+        if (animeIds.length === 0) {
+            return res.status(200).json([]);
+        }
+
+        // Passo 2: Obter os detalhes dos animes mais recentes com episódios
+        const queryAnimes = `
+            SELECT 
+                a.id,
+                a.capa,
+                a.titulo,
+                a.tituloAlternativo,
+                a.selo,
+                a.sinopse,
+                a.genero,
+                a.classificacao,
+                a.status,
+                a.qntd_temporadas,
+                a.anoLancamento,
+                a.dataPostagem,
+                a.ovas,
+                a.filmes,
+                a.estudio,
+                a.diretor,
+                a.tipoMidia,
+                a.visualizacoes
+            FROM 
+                animes a
+            WHERE
+                a.id IN (${animeIds.join(',')})
+            ORDER BY 
+                a.dataPostagem DESC
+        `;
+
+        db.all(queryAnimes, (error, animesRows) => {
+            if (error) {
+                console.error('Erro ao selecionar os dados dos animes:', error);
+                return res.status(500).send('Erro ao selecionar os dados dos animes do banco de dados.');
             }
 
-            if (row.episodio_id) {
-                animes[row.id].episodios.push({
-                    id: row.episodio_id,
-                    temporada: row.temporada,
-                    numero: row.numero,
-                    nome: row.nome_episodio,
-                    link: row.link,
-                    capa_ep: row.capa_ep
+            // Passo 3: Obter todos os episódios desses animes
+            const queryEpisodios = `
+                SELECT 
+                    e.id AS episodio_id,
+                    e.temporada,
+                    e.numero,
+                    e.nome AS nome_episodio,
+                    e.link,
+                    e.capa_ep,
+                    e.anime_id
+                FROM 
+                    episodios e
+                WHERE
+                    e.anime_id IN (${animeIds.join(',')})
+            `;
+
+            db.all(queryEpisodios, (error, episodiosRows) => {
+                if (error) {
+                    console.error('Erro ao selecionar os dados dos episódios:', error);
+                    return res.status(500).send('Erro ao selecionar os dados dos episódios do banco de dados.');
+                }
+
+                // Mapear os episódios por anime
+                const animesMap = animesRows.reduce((map, anime) => {
+                    map[anime.id] = {
+                        id: anime.id,
+                        capa: anime.capa,
+                        titulo: anime.titulo,
+                        tituloAlternativo: anime.tituloAlternativo,
+                        selo: anime.selo,
+                        sinopse: anime.sinopse,
+                        generos: anime.genero ? anime.genero.split(',') : [],
+                        classificacao: anime.classificacao,
+                        status: anime.status,
+                        qntd_temporadas: anime.qntd_temporadas,
+                        anoLancamento: anime.anoLancamento,
+                        dataPostagem: anime.dataPostagem,
+                        ovas: anime.ovas,
+                        filmes: anime.filmes,
+                        estudio: anime.estudio,
+                        diretor: anime.diretor,
+                        tipoMidia: anime.tipoMidia,
+                        visualizacoes: anime.visualizacoes,
+                        episodios: []
+                    };
+                    return map;
+                }, {});
+
+                // Adicionar episódios aos respectivos animes
+                episodiosRows.forEach(episodio => {
+                    if (animesMap[episodio.anime_id]) {
+                        animesMap[episodio.anime_id].episodios.push({
+                            id: episodio.episodio_id,
+                            temporada: episodio.temporada,
+                            numero: episodio.numero,
+                            nome: episodio.nome_episodio,
+                            link: episodio.link,
+                            capa_ep: episodio.capa_ep
+                        });
+                    }
                 });
-            }
+
+                // Converte o objeto em um array
+                const result = animeIds.map(id => animesMap[id]).filter(anime => anime.episodios.length > 0);
+
+                res.status(200).json(result);
+            });
         });
-
-        // Filtra os animes que possuem pelo menos um episódio
-        Object.values(animes).forEach(anime => {
-            if (anime.episodios.length > 0) {
-                animesComEpisodios.push(anime);
-            }
-        });
-
-        // Limita o resultado a 35 animes
-        const result = animesComEpisodios.slice(0, 35);
-
-        res.status(200).json(result);
     });
 });
+
 
 app.get('/animes-lancados-hoje', (req, res) => {
     const hoje = new Date().toISOString().split('T')[0]; // Data atual no formato YYYY-MM-DD
