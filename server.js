@@ -1584,13 +1584,19 @@ app.get('/animesRecentes', (req, res) => {
             a.estudio,
             a.diretor,
             a.tipoMidia,
-            a.visualizacoes AS visualizacoes
+            a.visualizacoes,
+            e.id AS episodio_id,
+            e.temporada,
+            e.numero,
+            e.nome AS nome_episodio,
+            e.link,
+            e.capa_ep
         FROM 
             animes a
-        WHERE 
-            a.dataPostagem <= date('now')  -- Garante que a data de postagem é menor ou igual à data atual
-        ORDER BY a.dataPostagem DESC
-        LIMIT 35; // Limita a consulta aos últimos 35 resultados
+        LEFT JOIN 
+            episodios e ON a.id = e.anime_id
+        ORDER BY 
+            a.dataPostagem DESC
     `;
 
     db.all(query, (error, rows) => {
@@ -1599,35 +1605,57 @@ app.get('/animesRecentes', (req, res) => {
             return res.status(500).send('Erro ao selecionar os dados dos animes recentes do banco de dados.');
         }
 
-        // Mapeie os resultados para formatar os dados conforme desejado
-        const animes = [];
+        const animes = {};
+        const animesComEpisodios = [];
 
         rows.forEach(row => {
-            const anime = {
-                id: row.id,
-                capa: row.capa,
-                titulo: row.titulo,
-                tituloAlternativo: row.tituloAlternativo,
-                selo: row.selo,
-                sinopse: row.sinopse,
-                generos: row.genero ? row.genero.split(',') : [],
-                classificacao: row.classificacao,
-                status: row.status,
-                qntd_temporadas: row.qntd_temporadas,
-                anoLancamento: row.anoLancamento,
-                dataPostagem: row.dataPostagem,
-                ovas: row.ovas,
-                filmes: row.filmes,
-                estudio: row.estudio,
-                diretor: row.diretor,
-                tipoMidia: row.tipoMidia,
-                visualizacoes: row.visualizacoes,
-            };
+            if (!animes[row.id]) {
+                animes[row.id] = {
+                    id: row.id,
+                    capa: row.capa,
+                    titulo: row.titulo,
+                    tituloAlternativo: row.tituloAlternativo,
+                    selo: row.selo,
+                    sinopse: row.sinopse,
+                    generos: row.genero ? row.genero.split(',') : [],
+                    classificacao: row.classificacao,
+                    status: row.status,
+                    qntd_temporadas: row.qntd_temporadas,
+                    anoLancamento: row.anoLancamento,
+                    dataPostagem: row.dataPostagem,
+                    ovas: row.ovas,
+                    filmes: row.filmes,
+                    estudio: row.estudio,
+                    diretor: row.diretor,
+                    tipoMidia: row.tipoMidia,
+                    visualizacoes: row.visualizacoes,
+                    episodios: []
+                };
+            }
 
-            animes.push(anime);
+            if (row.episodio_id) {
+                animes[row.id].episodios.push({
+                    id: row.episodio_id,
+                    temporada: row.temporada,
+                    numero: row.numero,
+                    nome: row.nome_episodio,
+                    link: row.link,
+                    capa_ep: row.capa_ep
+                });
+            }
         });
 
-        res.status(200).json(animes);
+        // Filtra os animes que possuem pelo menos um episódio
+        Object.values(animes).forEach(anime => {
+            if (anime.episodios.length > 0) {
+                animesComEpisodios.push(anime);
+            }
+        });
+
+        // Limita o resultado a 35 animes
+        const result = animesComEpisodios.slice(0, 35);
+
+        res.status(200).json(result);
     });
 });
 
