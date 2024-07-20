@@ -26,12 +26,29 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
         [[InlineKeyboardButton(button_text, url=button_url)]]
     )
 
-    # Truncar a mensagem se for muito longa
-    if len(mensagem) > 1024:
-        mensagem = mensagem[:1020] + '...'
-
-    # Enviar foto com a mensagem e o botão inline
-    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
+    # Limite de caracteres para a legenda
+    LIMITE_CAPTION = 1024
+    
+    # Dividir a mensagem em partes menores se exceder o limite
+    while len(mensagem) > LIMITE_CAPTION:
+        # Enviar a imagem com uma parte da legenda
+        await bot.send_photo(
+            chat_id=channel_id,
+            photo=url_imagem,
+            caption=mensagem[:LIMITE_CAPTION],
+            reply_markup=keyboard
+        )
+        
+        # Remover a parte enviada da mensagem original
+        mensagem = mensagem[LIMITE_CAPTION:]
+    
+    # Enviar a parte restante da mensagem
+    await bot.send_photo(
+        chat_id=channel_id,
+        photo=url_imagem,
+        caption=mensagem,
+        reply_markup=keyboard
+    )
 
 # Função para baixar a imagem de capa
 def baixar_imagem(url):
