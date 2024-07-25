@@ -30,36 +30,50 @@ const db = new sqlite3.Database(dbPath, (err) => {
     } else {
         console.log('Conectado ao banco de dados SQLite.');
 
-        // Remove a tabela antiga, se existir
-        db.run(`DROP TABLE IF EXISTS capitulos_manga_old`, (err) => {
+        // Cria a tabela mangasinfo se não existir
+        db.run(`
+            CREATE TABLE IF NOT EXISTS mangasinfo (
+                mangaid INTEGER PRIMARY KEY AUTOINCREMENT,
+                titulo TEXT NOT NULL,
+                titulo_alternativo TEXT,
+                autor TEXT,
+                genero TEXT,
+                sinopse TEXT,
+                capa_url TEXT,
+                data_postagem TEXT,
+                data_lancamento TEXT,
+                status TEXT,
+                classificacao TEXT,
+                tipo_midia TEXT
+            )
+        `, (err) => {
             if (err) {
-                console.error('Erro ao excluir a tabela antiga capitulos_manga_old:', err.message);
+                console.error('Erro ao criar tabela mangasinfo:', err.message);
             } else {
-                console.log('Tabela antiga capitulos_manga_old excluída (se existia).');
+                console.log('Tabela mangasinfo criada ou já existe.');
+            }
+        });
 
-                // Cria a nova tabela capitulos_manga
-                db.run(`
-                    CREATE TABLE IF NOT EXISTS capitulos_manga (
-                        mangaid INTEGER,
-                        numero INTEGER,
-                        titulo TEXT,
-                        link TEXT,
-                        data_postagem TEXT,
-                        data_lancamento TEXT,
-                        FOREIGN KEY (mangaid) REFERENCES mangasinfo (mangaid)
-                    )
-                `, (err) => {
-                    if (err) {
-                        console.error('Erro ao criar tabela capitulos_manga:', err.message);
-                    } else {
-                        console.log('Tabela capitulos_manga criada ou já existe.');
-                    }
-                });
+        // Cria a tabela capitulos_manga se não existir
+        db.run(`
+            CREATE TABLE IF NOT EXISTS capitulos_manga (
+                mangaid INTEGER,
+                numero INTEGER,
+                titulo TEXT,
+                link TEXT,
+                data_postagem TEXT,
+                data_lancamento TEXT,
+                FOREIGN KEY (mangaid) REFERENCES mangasinfo (mangaid)
+            )
+        `, (err) => {
+            if (err) {
+                console.error('Erro ao criar tabela capitulos_manga:', err.message);
+            } else {
+                console.log('Tabela capitulos_manga criada ou já existe.');
             }
         });
     }
 });
-
 
 // Rota para inserir um novo mangá e seus capítulos
 app.post('/mangas', (req, res) => {
