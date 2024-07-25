@@ -21,7 +21,7 @@ const httpsOptions = {
 
 // Caminho para o arquivo do banco de dados SQLite
 // Cria uma nova conexão com o banco de dados SQLite
-const dbPath = path.resolve(__dirname, 'database.db');
+const dbPath = path.resolve(__dirname, 'database_mangas.db');
 
 // Cria uma nova conexão com o banco de dados SQLite
 const db = new sqlite3.Database(dbPath, (err) => {
