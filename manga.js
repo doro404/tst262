@@ -58,6 +58,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
         db.run(`
             CREATE TABLE IF NOT EXISTS capitulos_manga (
                 mangaid INTEGER,
+                cap_numero INTEGER,
                 numero INTEGER,
                 titulo TEXT,
                 link TEXT,
@@ -103,9 +104,9 @@ app.post('/mangas', (req, res) => {
                 const mangaid = this.lastID;
                 const insertChapterPromises = capitulos.map(chapter => {
                     return new Promise((resolve, reject) => {
-                        const { numero, titulo, link, data_postagem, data_lancamento } = chapter;
-                        db.run(`INSERT INTO capitulos_manga (mangaid, numero, titulo, link, data_postagem, data_lancamento) VALUES (?, ?, ?, ?, ?, ?)`,
-                            [mangaid, numero, titulo, link, data_postagem, data_lancamento],
+                        const { cap_numero, numero, titulo, link, data_postagem, data_lancamento } = chapter;
+                        db.run(`INSERT INTO capitulos_manga (mangaid, cap_numero, numero, titulo, link, data_postagem, data_lancamento) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [mangaid, cap_numero, numero, titulo, link, data_postagem, data_lancamento],
                             function (err) {
                                 if (err) {
                                     reject('Erro ao inserir dados em capitulos_manga');
@@ -122,6 +123,7 @@ app.post('/mangas', (req, res) => {
             });
     });
 });
+
 
 // Rota para obter as informações de um mangá e seus capítulos
 app.get('/mangas/:mangaid', (req, res) => {
@@ -155,6 +157,7 @@ app.get('/mangas/:mangaid', (req, res) => {
         });
     });
 });
+
 
 app.get('/search', (req, res) => {
     const searchQuery = req.query.query || '';
@@ -307,6 +310,7 @@ app.get('/mangas/page/:page', (req, res) => {
     });
 });
 
+
 // Rota para editar um mangá e seus capítulos
 app.put('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
@@ -321,9 +325,9 @@ app.put('/mangas/:mangaid', (req, res) => {
             } else {
                 const updateChapterPromises = capitulos.map(chapter => {
                     return new Promise((resolve, reject) => {
-                        const { capitulo_id, numero, titulo, link, data_postagem, data_lancamento } = chapter;
-                        db.run(`UPDATE capitulos_manga SET numero = ?, titulo = ?, link = ?, data_postagem = ?, data_lancamento = ? WHERE capitulo_id = ? AND mangaid = ?`,
-                            [numero, titulo, link, data_postagem, data_lancamento, capitulo_id, mangaid],
+                        const { cap_numero, numero, titulo, link, data_postagem, data_lancamento } = chapter;
+                        db.run(`UPDATE capitulos_manga SET cap_numero = ?, numero = ?, titulo = ?, link = ?, data_postagem = ?, data_lancamento = ? WHERE cap_numero = ? AND mangaid = ?`,
+                            [cap_numero, numero, titulo, link, data_postagem, data_lancamento, cap_numero, mangaid],
                             function (err) {
                                 if (err) {
                                     reject('Erro ao atualizar dados em capitulos_manga');
@@ -340,6 +344,7 @@ app.put('/mangas/:mangaid', (req, res) => {
             }
         });
 });
+
 // Rota para excluir um mangá e seus capítulos
 app.delete('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
@@ -367,6 +372,7 @@ app.delete('/mangas/:mangaid', (req, res) => {
         });
     });
 });
+
 
 https.createServer(httpsOptions, app).listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
