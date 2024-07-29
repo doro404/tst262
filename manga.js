@@ -148,15 +148,22 @@ app.get('/mangas/:mangaid', (req, res) => {
                 return;
             }
 
+            // Concatenar os links das imagens de cada capítulo
+            const capitulosComLinks = capitulos.map(capitulo => {
+                capitulo.imagens = capitulo.imagens.split(',').join(', ');
+                return capitulo;
+            });
+
             const resultado = {
                 ...manga,
-                capitulos
+                capitulos: capitulosComLinks
             };
 
             res.status(200).json(resultado);
         });
     });
 });
+
 
 
 app.get('/search', (req, res) => {
