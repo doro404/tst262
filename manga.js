@@ -267,11 +267,25 @@ app.get('/recent-mangas', (req, res) => {
                 return;
             }
 
-            // Organizar capítulos por manga
-            const mangaWithChapters = rows.map(manga => ({
-                ...manga,
-                capitulos: chapters.filter(chapter => chapter.mangaid === manga.mangaid)
-            }));
+            // Organizar capítulos por manga e criar uma string única para os links
+            const mangaWithChapters = rows.map(manga => {
+                // Filtrar capítulos do manga atual
+                const mangaChapters = chapters.filter(chapter => chapter.mangaid === manga.mangaid);
+
+                // Criar uma string única com URLs de capítulos separados por vírgulas
+                const chapterLinks = mangaChapters
+                    .map(chapter => chapter.link)
+                    .join(', ');
+
+                return {
+                    ...manga,
+                    capitulos: mangaChapters.map(chapter => ({
+                        ...chapter,
+                        // Adiciona a string única de links aos capítulos
+                        links: chapterLinks
+                    }))
+                };
+            });
 
             res.json(mangaWithChapters);
         });
