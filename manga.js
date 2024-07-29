@@ -150,7 +150,11 @@ app.get('/mangas/:mangaid', (req, res) => {
 
             // Concatenar os links das imagens de cada capítulo
             const capitulosComLinks = capitulos.map(capitulo => {
-                capitulo.imagens = capitulo.imagens.split(',').join(', ');
+                if (capitulo.link) {
+                    capitulo.link = capitulo.link.split(',').join(', ');
+                } else {
+                    capitulo.link = '';
+                }
                 return capitulo;
             });
 
