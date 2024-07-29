@@ -258,6 +258,7 @@ app.get('/recent-mangas', (req, res) => {
         const chaptersQuery = `
             SELECT * FROM capitulos_manga
             WHERE mangaid IN (${mangaIds.join(', ')})
+            ORDER BY numero
         `;
 
         db.all(chaptersQuery, [], (err, chapters) => {
@@ -269,20 +270,32 @@ app.get('/recent-mangas', (req, res) => {
 
             // Organizar capítulos por manga e criar uma string única para os links
             const mangaWithChapters = rows.map(manga => {
-                // Filtrar capítulos do manga atual
-                const mangaChapters = chapters.filter(chapter => chapter.mangaid === manga.mangaid);
+                // Filtrar capítulos do manga atual e ordenar por número
+                const mangaChapters = chapters
+                    .filter(chapter => chapter.mangaid === manga.mangaid)
+                    .map(chapter => ({
+                        ...chapter,
+                        // Cria uma string única com URLs de capítulos ordenados por número
+                        links: chapters
+                            .filter(c => c.cap_numero === chapter.cap_numero)
+                            .map(c => c.link)
+                            .join(', ')
+                    }))
+                    .reduce((acc, chapter) => {
+                        // Usa um mapa para garantir que apenas uma entrada por capítulo seja retornada
+                        const key = chapter.cap_numero;
+                        if (!acc[key]) {
+                            acc[key] = chapter;
+                        } else {
+                            acc[key].links += `, ${chapter.links}`;
+                        }
+                        return acc;
+                    }, {});
 
-                // Criar uma string única com URLs de capítulos separados por vírgulas
-                const chapterLinks = mangaChapters
-                    .map(chapter => chapter.link)
-                    .join(', ');
-
+                // Converte o objeto em array
                 return {
                     ...manga,
-                    capitulos: mangaChapters.map(chapter => ({
-                        ...chapter,
-                        links: chapterLinks
-                    }))
+                    capitulos: Object.values(mangaChapters)
                 };
             });
 
@@ -290,7 +303,6 @@ app.get('/recent-mangas', (req, res) => {
         });
     });
 });
-
 
 app.get('/mangas/page/:page', (req, res) => {
     const page = parseInt(req.params.page, 10);
