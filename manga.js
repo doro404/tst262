@@ -148,13 +148,19 @@ app.get('/mangas/:mangaid', (req, res) => {
                 return;
             }
 
-            // Concatenar os links das imagens de cada capítulo
-            const capitulosComLinks = capitulos.map(capitulo => {
-                if (capitulo.link) {
-                    capitulo.link = capitulo.link.split(',').join(', ');
-                } else {
-                    capitulo.link = '';
+            // Agrupar capítulos por `cap_numero`
+            const capitulosAgrupados = capitulos.reduce((acc, capitulo) => {
+                const { cap_numero, link } = capitulo;
+                if (!acc[cap_numero]) {
+                    acc[cap_numero] = { ...capitulo, links: [] };
                 }
+                acc[cap_numero].links.push(link);
+                return acc;
+            }, {});
+
+            // Transformar objeto em array e concatenar links
+            const capitulosComLinks = Object.values(capitulosAgrupados).map(capitulo => {
+                capitulo.links = capitulo.links.join(', ');
                 return capitulo;
             });
 
