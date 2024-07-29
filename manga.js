@@ -141,7 +141,7 @@ app.get('/mangas/:mangaid', (req, res) => {
             return;
         }
 
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ?`, [mangaid], (err, capitulos) => {
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY cap_numero, numero`, [mangaid], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
@@ -158,9 +158,10 @@ app.get('/mangas/:mangaid', (req, res) => {
                 return acc;
             }, {});
 
-            // Transformar objeto em array e concatenar links
+            // Transformar objeto em array e ordenar links antes de concatenar
             const capitulosComLinks = Object.values(capitulosAgrupados).map(capitulo => {
-                capitulo.links = capitulo.links.join(', ');
+                // Ordenar links em ordem crescente
+                capitulo.links = capitulo.links.sort().join(', ');
                 return capitulo;
             });
 
@@ -173,7 +174,6 @@ app.get('/mangas/:mangaid', (req, res) => {
         });
     });
 });
-
 
 
 app.get('/search', (req, res) => {
