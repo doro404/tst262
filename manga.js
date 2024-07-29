@@ -258,7 +258,7 @@ app.get('/recent-mangas', (req, res) => {
         const chaptersQuery = `
             SELECT * FROM capitulos_manga
             WHERE mangaid IN (${mangaIds.join(', ')})
-            ORDER BY numero
+            ORDER BY mangaid, cap_numero, numero
         `;
 
         db.all(chaptersQuery, [], (err, chapters) => {
@@ -273,29 +273,25 @@ app.get('/recent-mangas', (req, res) => {
                 // Filtrar capítulos do manga atual e ordenar por número
                 const mangaChapters = chapters
                     .filter(chapter => chapter.mangaid === manga.mangaid)
-                    .map(chapter => ({
-                        ...chapter,
-                        // Cria uma string única com URLs de capítulos ordenados por número
-                        links: chapters
-                            .filter(c => c.cap_numero === chapter.cap_numero)
-                            .map(c => c.link)
-                            .join(', ')
-                    }))
                     .reduce((acc, chapter) => {
-                        // Usa um mapa para garantir que apenas uma entrada por capítulo seja retornada
-                        const key = chapter.cap_numero;
-                        if (!acc[key]) {
-                            acc[key] = chapter;
-                        } else {
-                            acc[key].links += `, ${chapter.links}`;
+                        // Agrupar capítulos por cap_numero
+                        const { cap_numero, link } = chapter;
+                        if (!acc[cap_numero]) {
+                            acc[cap_numero] = { ...chapter, links: [] };
                         }
+                        acc[cap_numero].links.push(link);
                         return acc;
                     }, {});
 
-                // Converte o objeto em array
+                // Converte o objeto em array e cria uma string única de links
+                const capitulosComLinks = Object.values(mangaChapters).map(chapter => {
+                    chapter.links = chapter.links.join(', ');
+                    return chapter;
+                });
+
                 return {
                     ...manga,
-                    capitulos: Object.values(mangaChapters)
+                    capitulos: capitulosComLinks
                 };
             });
 
