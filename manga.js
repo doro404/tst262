@@ -281,7 +281,6 @@ app.get('/recent-mangas', (req, res) => {
                     ...manga,
                     capitulos: mangaChapters.map(chapter => ({
                         ...chapter,
-                        // Adiciona a string única de links aos capítulos
                         links: chapterLinks
                     }))
                 };
@@ -291,6 +290,7 @@ app.get('/recent-mangas', (req, res) => {
         });
     });
 });
+
 
 app.get('/mangas/page/:page', (req, res) => {
     const page = parseInt(req.params.page, 10);
