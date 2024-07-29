@@ -152,16 +152,24 @@ app.get('/mangas/:mangaid', (req, res) => {
             const capitulosAgrupados = capitulos.reduce((acc, capitulo) => {
                 const { cap_numero, link } = capitulo;
                 if (!acc[cap_numero]) {
-                    acc[cap_numero] = { ...capitulo, links: [] };
+                    acc[cap_numero] = {
+                        mangaid: capitulo.mangaid,
+                        cap_numero: capitulo.cap_numero,
+                        numero: capitulo.numero,
+                        titulo: capitulo.titulo,
+                        data_postagem: capitulo.data_postagem,
+                        data_lancamento: capitulo.data_lancamento,
+                        links: []
+                    };
                 }
                 acc[cap_numero].links.push(link);
                 return acc;
             }, {});
 
-            // Transformar objeto em array e ordenar links antes de concatenar
+            // Transformar objeto em array e ordenar links
             const capitulosComLinks = Object.values(capitulosAgrupados).map(capitulo => {
-                // Ordenar links em ordem crescente
-                capitulo.links = capitulo.links.sort().join(', ');
+                // Ordenar links em ordem crescente e remover duplicatas
+                capitulo.links = Array.from(new Set(capitulo.links)).sort().join(', ');
                 return capitulo;
             });
 
@@ -174,6 +182,7 @@ app.get('/mangas/:mangaid', (req, res) => {
         });
     });
 });
+
 
 
 app.get('/search', (req, res) => {
