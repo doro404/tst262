@@ -141,48 +141,22 @@ app.get('/mangas/:mangaid', (req, res) => {
             return;
         }
 
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY cap_numero, numero`, [mangaid], (err, capitulos) => {
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ?`, [mangaid], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
                 return;
             }
 
-            // Agrupar capítulos por `cap_numero`
-            const capitulosAgrupados = capitulos.reduce((acc, capitulo) => {
-                const { cap_numero, link } = capitulo;
-                if (!acc[cap_numero]) {
-                    acc[cap_numero] = {
-                        mangaid: capitulo.mangaid,
-                        cap_numero: capitulo.cap_numero,
-                        numero: capitulo.numero,
-                        titulo: capitulo.titulo,
-                        data_postagem: capitulo.data_postagem,
-                        data_lancamento: capitulo.data_lancamento,
-                        links: []
-                    };
-                }
-                acc[cap_numero].links.push(link);
-                return acc;
-            }, {});
-
-            // Transformar objeto em array e ordenar links
-            const capitulosComLinks = Object.values(capitulosAgrupados).map(capitulo => {
-                // Ordenar links em ordem crescente e remover duplicatas
-                capitulo.links = Array.from(new Set(capitulo.links)).sort().join(', ');
-                return capitulo;
-            });
-
             const resultado = {
                 ...manga,
-                capitulos: capitulosComLinks
+                capitulos
             };
 
             res.status(200).json(resultado);
         });
     });
 });
-
 
 
 app.get('/search', (req, res) => {
@@ -267,7 +241,6 @@ app.get('/recent-mangas', (req, res) => {
         const chaptersQuery = `
             SELECT * FROM capitulos_manga
             WHERE mangaid IN (${mangaIds.join(', ')})
-            ORDER BY mangaid, cap_numero, numero
         `;
 
         db.all(chaptersQuery, [], (err, chapters) => {
@@ -277,32 +250,11 @@ app.get('/recent-mangas', (req, res) => {
                 return;
             }
 
-            // Organizar capítulos por manga e criar uma string única para os links
-            const mangaWithChapters = rows.map(manga => {
-                // Filtrar capítulos do manga atual e ordenar por número
-                const mangaChapters = chapters
-                    .filter(chapter => chapter.mangaid === manga.mangaid)
-                    .reduce((acc, chapter) => {
-                        // Agrupar capítulos por cap_numero
-                        const { cap_numero, link } = chapter;
-                        if (!acc[cap_numero]) {
-                            acc[cap_numero] = { ...chapter, links: [] };
-                        }
-                        acc[cap_numero].links.push(link);
-                        return acc;
-                    }, {});
-
-                // Converte o objeto em array e cria uma string única de links
-                const capitulosComLinks = Object.values(mangaChapters).map(chapter => {
-                    chapter.links = chapter.links.join(', ');
-                    return chapter;
-                });
-
-                return {
-                    ...manga,
-                    capitulos: capitulosComLinks
-                };
-            });
+            // Organizar capítulos por manga
+            const mangaWithChapters = rows.map(manga => ({
+                ...manga,
+                capitulos: chapters.filter(chapter => chapter.mangaid === manga.mangaid)
+            }));
 
             res.json(mangaWithChapters);
         });
@@ -425,4 +377,3 @@ app.delete('/mangas/:mangaid', (req, res) => {
 https.createServer(httpsOptions, app).listen(PORT, () => {
     console.log(`Servidor rodando na porta ${PORT}`);
 });
-
