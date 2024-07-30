@@ -315,31 +315,32 @@ app.put('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
     const { titulo, titulo_alternativo, autor, genero, sinopse, capa_url, data_postagem, data_lancamento, status, classificacao, tipo_midia, capitulos } = req.body;
 
-    // Atualizar informações do mangá
     db.run(`UPDATE mangasinfo SET titulo = ?, titulo_alternativo = ?, autor = ?, genero = ?, sinopse = ?, capa_url = ?, data_postagem = ?, data_lancamento = ?, status = ?, classificacao = ?, tipo_midia = ? WHERE mangaid = ?`,
         [titulo, titulo_alternativo, autor, genero, sinopse, capa_url, data_postagem, data_lancamento, status, classificacao, tipo_midia, mangaid],
         function (err) {
             if (err) {
                 console.error('Erro ao atualizar dados em mangasinfo:', err.message);
-                return res.status(500).send('Erro ao atualizar dados em mangasinfo');
+                res.status(500).json({ message: 'Erro ao atualizar dados em mangasinfo' });
+                return;
             }
 
-            // Excluir todos os capítulos do mangá
+            // Excluir capítulos existentes
             db.run(`DELETE FROM capitulos_manga WHERE mangaid = ?`, [mangaid], function (err) {
                 if (err) {
-                    console.error('Erro ao excluir capítulos existentes:', err.message);
-                    return res.status(500).send('Erro ao excluir capítulos existentes');
+                    console.error('Erro ao excluir capítulos antigos:', err.message);
+                    res.status(500).json({ message: 'Erro ao excluir capítulos antigos' });
+                    return;
                 }
 
                 // Inserir novos capítulos
                 const insertChapterPromises = capitulos.map(chapter => {
                     return new Promise((resolve, reject) => {
                         const { cap_numero, numero, titulo, link, data_postagem, data_lancamento } = chapter;
-                        db.run(`INSERT INTO capitulos_manga (mangaid, cap_numero, numero, titulo, link, data_postagem, data_lancamento) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                            [mangaid, cap_numero, numero, titulo, link, data_postagem, data_lancamento],
+                        db.run(`INSERT INTO capitulos_manga (cap_numero, numero, titulo, link, data_postagem, data_lancamento, mangaid) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                            [cap_numero, numero, titulo, link, data_postagem, data_lancamento, mangaid],
                             function (err) {
                                 if (err) {
-                                    reject('Erro ao inserir dados em capitulos_manga');
+                                    reject('Erro ao inserir novo capítulo');
                                 } else {
                                     resolve();
                                 }
@@ -348,8 +349,8 @@ app.put('/mangas/:mangaid', (req, res) => {
                 });
 
                 Promise.all(insertChapterPromises)
-                    .then(() => res.status(200).send('Mangá e capítulos atualizados com sucesso'))
-                    .catch(err => res.status(500).send(err));
+                    .then(() => res.status(200).json({ message: 'Mangá e capítulos atualizados com sucesso' }))
+                    .catch(err => res.status(500).json({ message: err }));
             });
         });
 });
