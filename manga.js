@@ -124,7 +124,6 @@ app.post('/mangas', (req, res) => {
     });
 });
 
-
 // Rota para obter as informações de um mangá e seus capítulos
 app.get('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
@@ -141,7 +140,8 @@ app.get('/mangas/:mangaid', (req, res) => {
             return;
         }
 
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ?`, [mangaid], (err, capitulos) => {
+        // Ordena os capítulos por número
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY numero ASC`, [mangaid], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
