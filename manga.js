@@ -266,50 +266,62 @@ app.get('/mangas/page/:page', (req, res) => {
     const limit = 30; // Número de mangas por página
     const offset = (page - 1) * limit; // Calcula o offset com base na página atual
 
-    // Consulta para pegar os mangas com base na página e limite, ordenados pelo mangaid em ordem crescente
-    const query = `
-        SELECT * FROM mangasinfo
-        ORDER BY mangaid ASC
-        LIMIT ? OFFSET ?
-    `;
-
-    db.all(query, [limit, offset], (err, rows) => {
+    // Consulta para pegar o total de mangas
+    const countQuery = 'SELECT COUNT(*) AS total FROM mangasinfo';
+    db.get(countQuery, [], (err, countRow) => {
         if (err) {
-            console.error('Erro ao buscar mangas:', err.message);
-            res.status(500).send('Erro ao buscar mangas');
+            console.error('Erro ao contar mangas:', err.message);
+            res.status(500).send('Erro ao contar mangas');
             return;
         }
 
-        // Para cada manga, buscar também seus capítulos
-        const mangaIds = rows.map(row => row.mangaid);
+        const totalMangas = countRow.total;
+        const totalPages = Math.ceil(totalMangas / limit);
 
-        if (mangaIds.length === 0) {
-            return res.json([]);
-        }
-
-        const chaptersQuery = `
-            SELECT * FROM capitulos_manga
-            WHERE mangaid IN (${mangaIds.join(', ')})
+        // Consulta para pegar os mangas com base na página e limite, ordenados pelo mangaid em ordem crescente
+        const query = `
+            SELECT * FROM mangasinfo
+            ORDER BY mangaid ASC
+            LIMIT ? OFFSET ?
         `;
 
-        db.all(chaptersQuery, [], (err, chapters) => {
+        db.all(query, [limit, offset], (err, rows) => {
             if (err) {
-                console.error('Erro ao buscar capítulos dos mangas:', err.message);
-                res.status(500).send('Erro ao buscar capítulos dos mangas');
+                console.error('Erro ao buscar mangas:', err.message);
+                res.status(500).send('Erro ao buscar mangas');
                 return;
             }
 
-            // Organizar capítulos por manga
-            const mangaWithChapters = rows.map(manga => ({
-                ...manga,
-                capitulos: chapters.filter(chapter => chapter.mangaid === manga.mangaid)
-            }));
+            // Para cada manga, buscar também seus capítulos
+            const mangaIds = rows.map(row => row.mangaid);
 
-            res.json(mangaWithChapters);
+            if (mangaIds.length === 0) {
+                return res.json({ mangas: [], totalPages });
+            }
+
+            const chaptersQuery = `
+                SELECT * FROM capitulos_manga
+                WHERE mangaid IN (${mangaIds.join(', ')})
+            `;
+
+            db.all(chaptersQuery, [], (err, chapters) => {
+                if (err) {
+                    console.error('Erro ao buscar capítulos dos mangas:', err.message);
+                    res.status(500).send('Erro ao buscar capítulos dos mangas');
+                    return;
+                }
+
+                // Organizar capítulos por manga
+                const mangaWithChapters = rows.map(manga => ({
+                    ...manga,
+                    capitulos: chapters.filter(chapter => chapter.mangaid === manga.mangaid)
+                }));
+
+                res.json({ mangas: mangaWithChapters, totalPages });
+            });
         });
     });
 });
-
 // Rota para editar um mangá e seus capítulos
 app.put('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
