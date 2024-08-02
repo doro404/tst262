@@ -558,8 +558,23 @@ app.put('/catalogo/:id', (req, res) => {
         animeId
     ];
 
-    // Função para atualizar ou adicionar episódios
-    const updateOrInsertEpisodes = (db, episodesData, animeId) => {
+    // Incluir lógica para atualizar os dados dos episódios associados
+    const updateEpisodesQuery = `
+        UPDATE episodios 
+        SET 
+            temporada = ?,
+            numero = ?,
+            nome = ?,
+            link = ?,
+            capa_ep = ?
+        WHERE 
+            id = ? AND anime_id = ?
+    `;
+
+    const episodesData = newAnimeData.episodios;
+
+    // Função para atualizar os episódios
+    const updateEpisodes = (db, updateEpisodesQuery, episodesData, animeId) => {
         return new Promise((resolve, reject) => {
             // Exclui todos os episódios existentes para este anime
             const deleteEpisodesQuery = `
@@ -571,14 +586,8 @@ app.put('/catalogo/:id', (req, res) => {
                     reject('Erro ao excluir episódios existentes:', error);
                 }
                 
+    
                 // Itera sobre os episódios fornecidos e insere-os no banco de dados
-                const insertEpisodeQuery = `
-                    INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id, data_lancamento) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?);
-                `;
-                
-                const agora = new Date().toISOString().slice(0, 19).replace('T', ' '); // Obtém a data e hora atuais no formato 'YYYY-MM-DD HH:MM:SS'
-                
                 episodesData.forEach(episodio => {
                     const episodeValues = [
                         episodio.temporada,
@@ -586,25 +595,28 @@ app.put('/catalogo/:id', (req, res) => {
                         episodio.nome,
                         episodio.link,
                         episodio.capa_ep,
-                        animeId,
-                        agora // Define a data e hora atuais para cada episódio
+                        animeId
                     ];
-
+    
+                    const insertEpisodeQuery = `
+                        INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id) 
+                        VALUES (?, ?, ?, ?, ?, ?);
+                    `;
                     db.run(insertEpisodeQuery, episodeValues, (error) => {
                         if (error) {
                             reject('Erro ao inserir episódio:', error);
                         }
                     });
                 });
-
+    
                 // Resolve a promessa após a atualização dos episódios
                 resolve();
             });
         });
     };
 
-    // Atualizar ou adicionar episódios
-    updateOrInsertEpisodes(db, newAnimeData.episodios, animeId)
+    // Atualizar os episódios primeiro
+    updateEpisodes(db, updateEpisodesQuery, episodesData, animeId)
         .then(() => {
             // Após atualizar os episódios, atualizar os dados do anime principal
             db.run(query, dataValues, (error) => {
@@ -619,8 +631,7 @@ app.put('/catalogo/:id', (req, res) => {
             console.error(error);
             return res.status(500).send(error);
         });
-});
- /// rota pra editar um anime existente ja no banco de dados pelo ID
+}); /// rota pra editar um anime existente ja no banco de dados pelo ID
 
 app.get('/todosAnimes/:id?', (req, res) => {
     const animeId = req.params.id;
