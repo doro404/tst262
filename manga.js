@@ -125,7 +125,6 @@ app.post('/mangas', (req, res) => {
     });
 });
 
-// Rota para obter as informações de um mangá e seus capítulos
 app.get('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
     const { page = 1, limit = 10 } = req.query; // Parâmetros de página e limite, com valores padrão
@@ -153,7 +152,7 @@ app.get('/mangas/:mangaid', (req, res) => {
         // Paginação dos capítulos
         const offset = (page - 1) * limit;
 
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY numero ASC LIMIT ? OFFSET ?`, [mangaid, limit, offset], (err, capitulos) => {
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY cap_numero ASC LIMIT ? OFFSET ?`, [mangaid, limit, offset], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
