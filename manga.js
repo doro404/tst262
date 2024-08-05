@@ -6,6 +6,7 @@ const cors = require('cors'); // Importe o pacote cors
 const PORT = process.env.PORT || 4000;
 const path = require('path');
 const https = require('https');
+const NodeCache = require('node-cache');
 const fs = require('fs');
 const compression = require('compression');
 
@@ -13,7 +14,7 @@ app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
-
+const cache = new NodeCache({ stdTTL: 600 }); // Cache por 10 minutos
 const httpsOptions = {
     key: fs.readFileSync('/etc/letsencrypt/live/saikanet.online/privkey.pem'),
     cert: fs.readFileSync('/etc/letsencrypt/live/saikanet.online/fullchain.pem')
@@ -127,6 +128,15 @@ app.post('/mangas', (req, res) => {
 // Rota para obter as informações de um mangá e seus capítulos
 app.get('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
+    const { page = 1, limit = 10 } = req.query; // Parâmetros de página e limite, com valores padrão
+
+    // Verifica se o resultado está em cache
+    const cacheKey = `manga_${mangaid}_page_${page}_limit_${limit}`;
+    const cachedData = cache.get(cacheKey);
+
+    if (cachedData) {
+        return res.status(200).json(cachedData);
+    }
 
     db.get(`SELECT * FROM mangasinfo WHERE mangaid = ?`, [mangaid], (err, manga) => {
         if (err) {
@@ -140,24 +150,37 @@ app.get('/mangas/:mangaid', (req, res) => {
             return;
         }
 
-        // Ordena os capítulos por número
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY numero ASC`, [mangaid], (err, capitulos) => {
+        // Paginação dos capítulos
+        const offset = (page - 1) * limit;
+
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY numero ASC LIMIT ? OFFSET ?`, [mangaid, limit, offset], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
                 return;
             }
 
+            // Prepare o resultado final
             const resultado = {
                 ...manga,
-                capitulos
+                capitulos,
+                pagina: parseInt(page, 10),
+                limite: parseInt(limit, 10)
             };
+
+            // Valida o formato dos dados
+            if (!resultado.capitulos || !Array.isArray(resultado.capitulos)) {
+                res.status(500).send('Dados de capítulos inválidos');
+                return;
+            }
+
+            // Armazena o resultado no cache
+            cache.set(cacheKey, resultado);
 
             res.status(200).json(resultado);
         });
     });
 });
-
 
 app.get('/search', (req, res) => {
     const searchQuery = req.query.query || '';
@@ -359,9 +382,14 @@ app.put('/mangas/:mangaid', (req, res) => {
                             });
                     });
                 });
-
                 Promise.all(insertChapterPromises)
-                    .then(() => res.status(200).json({ message: 'Mangá e capítulos atualizados com sucesso' }))
+                    .then(() => {
+                        // Invalida o cache para o mangaid
+                        cache.del(`manga_${mangaid}_page_1_limit_10`);
+                        // Adicione aqui a lógica para invalidar outros caches conforme necessário
+
+                        res.status(200).json({ message: 'Mangá e capítulos atualizados com sucesso' });
+                    })
                     .catch(err => res.status(500).json({ message: err }));
             });
         });
