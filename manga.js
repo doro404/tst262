@@ -125,7 +125,7 @@ app.post('/mangas', (req, res) => {
     });
 });
 
-pp.get('/mangas/:mangaid', (req, res) => {
+app.get('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
     const { page = 1, limit = 10 } = req.query; // Parâmetros de página e limite, com valores padrão
 
