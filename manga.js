@@ -283,10 +283,9 @@ app.get('/recent-mangas', (req, res) => {
         });
     });
 });
-
 app.get('/mangas/page/:page', (req, res) => {
     const page = parseInt(req.params.page, 10);
-    const limit = 30; // Número de mangas por página
+    const limit = 150; // Número de mangas por página
     const offset = (page - 1) * limit; // Calcula o offset com base na página atual
 
     // Consulta para pegar o total de mangas
@@ -322,9 +321,11 @@ app.get('/mangas/page/:page', (req, res) => {
                 return res.json({ mangas: [], totalPages });
             }
 
+            // Consulta para pegar os capítulos com base nos mangaids, ordenados pelo cap_numero em ordem crescente
             const chaptersQuery = `
                 SELECT * FROM capitulos_manga
                 WHERE mangaid IN (${mangaIds.join(', ')})
+                ORDER BY mangaid, cap_numero ASC
             `;
 
             db.all(chaptersQuery, [], (err, chapters) => {
