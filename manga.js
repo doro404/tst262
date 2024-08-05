@@ -125,7 +125,7 @@ app.post('/mangas', (req, res) => {
     });
 });
 
-app.get('/mangas/:mangaid', (req, res) => {
+pp.get('/mangas/:mangaid', (req, res) => {
     const { mangaid } = req.params;
     const { page = 1, limit = 10 } = req.query; // Parâmetros de página e limite, com valores padrão
 
@@ -160,27 +160,42 @@ app.get('/mangas/:mangaid', (req, res) => {
                 return;
             }
 
-            // Prepare o resultado final
-            const resultado = {
-                ...manga,
-                capitulos,
-                pagina: parseInt(page, 10),
-                limite: parseInt(limit, 10)
-            };
+            // Obter o total de capítulos
+            db.get(`SELECT COUNT(*) AS total FROM capitulos_manga WHERE mangaid = ?`, [mangaid], (err, countResult) => {
+                if (err) {
+                    console.error('Erro ao obter o total de capítulos:', err.message);
+                    res.status(500).send('Erro ao obter o total de capítulos');
+                    return;
+                }
 
-            // Valida o formato dos dados
-            if (!resultado.capitulos || !Array.isArray(resultado.capitulos)) {
-                res.status(500).send('Dados de capítulos inválidos');
-                return;
-            }
+                const totalCapitulos = countResult.total;
+                const totalPaginas = Math.ceil(totalCapitulos / limit); // Calcula o total de páginas
 
-            // Armazena o resultado no cache
-            cache.set(cacheKey, resultado);
+                // Prepare o resultado final
+                const resultado = {
+                    ...manga,
+                    capitulos,
+                    pagina: parseInt(page, 10),
+                    limite: parseInt(limit, 10),
+                    totalPaginas, // Adiciona o total de páginas na resposta
+                    totalCapitulos // Adiciona o total de capítulos na resposta
+                };
 
-            res.status(200).json(resultado);
+                // Valida o formato dos dados
+                if (!resultado.capitulos || !Array.isArray(resultado.capitulos)) {
+                    res.status(500).send('Dados de capítulos inválidos');
+                    return;
+                }
+
+                // Armazena o resultado no cache
+                cache.set(cacheKey, resultado);
+
+                res.status(200).json(resultado);
+            });
         });
     });
 });
+
 
 
 app.get('/search', (req, res) => {
