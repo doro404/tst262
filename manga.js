@@ -152,7 +152,8 @@ app.get('/mangas/:mangaid', (req, res) => {
         // Paginação dos capítulos
         const offset = (page - 1) * limit;
 
-        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY cap_numero ASC LIMIT ? OFFSET ?`, [mangaid, limit, offset], (err, capitulos) => {
+        // Ajuste da consulta SQL para ordenar por cap_numero e depois por numero
+        db.all(`SELECT * FROM capitulos_manga WHERE mangaid = ? ORDER BY cap_numero ASC, numero ASC LIMIT ? OFFSET ?`, [mangaid, limit, offset], (err, capitulos) => {
             if (err) {
                 console.error('Erro ao obter dados de capitulos_manga:', err.message);
                 res.status(500).send('Erro ao obter dados de capitulos_manga');
@@ -180,6 +181,7 @@ app.get('/mangas/:mangaid', (req, res) => {
         });
     });
 });
+
 
 app.get('/search', (req, res) => {
     const searchQuery = req.query.query || '';
