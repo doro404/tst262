@@ -403,6 +403,13 @@ app.put('/mangas/:mangaid', (req, res) => {
                     .then(() => {
                         // Invalida o cache para o mangaid
                         cache.del(`manga_${mangaid}_page_1_limit_10`);
+                        cache.del(`manga_${mangaid}_capitulos`);
+                        cache.del(`manga_${mangaid}`);
+
+                        // Invalida caches de listagens
+                        cache.del('mangas_list_page_1_limit_10');
+                        cache.del(`mangas_genre_${genre}_page_1_limit_10`);
+                        cache.del(`mangas_author_${author}_page_1_limit_10`);
                         // Adicione aqui a lógica para invalidar outros caches conforme necessário
 
                         res.status(200).json({ message: 'Mangá e capítulos atualizados com sucesso' });
