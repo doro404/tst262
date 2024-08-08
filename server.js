@@ -14,6 +14,7 @@ const { Builder } = require('xml2js');
 const config = require('./config');
 const { vpsUrl } = require('./config');
 const compression = require('compression');
+const cron = require('node-cron');
 
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
