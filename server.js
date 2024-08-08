@@ -813,7 +813,8 @@ app.get('/todosAnimes/:id?', (req, res) => {
     }
 }); /// rota que envia todos resultados de todos animes se nao especificar id como parametro e se especificar id retorna o valor de um catalogo em especifico
 
-const RESULTS_PER_PAGE = 30; /// quantidade de resultados por pagina
+const RESULTS_PER_PAGE = 30; // Quantidade de resultados por página
+
 app.get('/animesPagina/:page?', (req, res) => {
     const page = parseInt(req.params.page) || 1; // Página padrão é a página 1
 
@@ -823,103 +824,125 @@ app.get('/animesPagina/:page?', (req, res) => {
     // Consulta SQL para contar o número total de registros na tabela de animes
     const countQuery = `SELECT COUNT(*) AS total FROM animes`;
 
-    db.get(countQuery, (error, countRow) => {
+    // Função para obter estatísticas
+    function getStatistics(callback) {
+        db.get('SELECT total_animes, total_episodios FROM estatisticas ORDER BY data_atualizacao DESC LIMIT 1', (error, row) => {
+            if (error) {
+                console.error('Erro ao consultar estatísticas:', error);
+                return callback(error);
+            }
+            callback(null, row);
+        });
+    }
+
+    // Obter o total de animes e episódios
+    getStatistics((error, statistics) => {
         if (error) {
-            console.error('Erro ao contar o número total de registros:', error);
-            return res.status(500).send('Erro ao contar o número total de registros na tabela de animes.');
+            return res.status(500).send('Erro ao obter estatísticas.');
         }
 
-        const totalRecords = countRow.total;
-        const totalPages = Math.ceil(totalRecords / RESULTS_PER_PAGE);
-
-        const query = `
-            SELECT 
-                a.id AS anime_id,
-                a.capa AS anime_capa,
-                a.titulo AS anime_titulo,
-                a.tituloAlternativo AS anime_tituloAlternativo,
-                a.selo AS anime_selo,
-                a.sinopse AS anime_sinopse,
-                a.genero AS anime_genero,
-                a.classificacao AS anime_classificacao,
-                a.status AS anime_status,
-                a.qntd_temporadas AS anime_qntd_temporadas,
-                a.anoLancamento AS anime_anoLancamento,
-                a.dataPostagem AS anime_dataPostagem,
-                a.ovas AS anime_ovas,
-                a.filmes AS anime_filmes,
-                a.estudio AS anime_estudio,
-                a.diretor AS anime_diretor,
-                a.tipoMidia AS anime_tipoMidia,
-                e.temporada AS episodio_temporada,
-                e.numero AS episodio_numero,
-                e.nome AS episodio_nome,
-                e.link AS episodio_link,
-                e.capa_ep AS episodio_capa_ep
-            FROM 
-                animes a
-            LEFT JOIN 
-                episodios e ON a.id = e.anime_id
-            WHERE 
-                a.id IN (
-                    SELECT id FROM animes ORDER BY id ASC LIMIT ? OFFSET ?
-                )
-            ORDER BY a.id ASC, e.numero ASC;
-        `;
-
-        db.all(query, [RESULTS_PER_PAGE, offset], (error, rows) => {
+        // Consultar o total de registros e dados dos animes e episódios
+        db.get(countQuery, (error, countRow) => {
             if (error) {
-                console.error('Erro ao selecionar os dados dos animes:', error);
-                return res.status(500).send('Erro ao selecionar os dados dos animes do banco de dados.');
+                console.error('Erro ao contar o número total de registros:', error);
+                return res.status(500).send('Erro ao contar o número total de registros na tabela de animes.');
             }
 
-            // Mapeie os resultados para formatar os dados conforme desejado
-            const animes = [];
-            let currentAnime = null;
+            const totalRecords = countRow.total;
+            const totalPages = Math.ceil(totalRecords / RESULTS_PER_PAGE);
 
-            rows.forEach(row => {
-                if (!currentAnime || currentAnime.id !== row.anime_id) {
-                    // Um novo anime foi encontrado
-                    currentAnime = {
-                        id: row.anime_id,
-                        capa: row.anime_capa,
-                        titulo: row.anime_titulo,
-                        tituloAlternativo: row.anime_tituloAlternativo,
-                        selo: row.anime_selo,
-                        sinopse: row.anime_sinopse,
-                        generos: row.anime_genero ? row.anime_genero.split(',') : [],
-                        classificacao: row.anime_classificacao,
-                        status: row.anime_status,
-                        qntd_temporadas: row.anime_qntd_temporadas,
-                        anoLancamento: row.anime_anoLancamento,
-                        dataPostagem: row.anime_dataPostagem,
-                        ovas: row.anime_ovas,
-                        filmes: row.anime_filmes,
-                        estudio: row.anime_estudio,
-                        diretor: row.anime_diretor,
-                        tipoMidia: row.anime_tipoMidia,
-                        episodios: []
-                    };
-                    animes.push(currentAnime);
+            const query = `
+                SELECT 
+                    a.id AS anime_id,
+                    a.capa AS anime_capa,
+                    a.titulo AS anime_titulo,
+                    a.tituloAlternativo AS anime_tituloAlternativo,
+                    a.selo AS anime_selo,
+                    a.sinopse AS anime_sinopse,
+                    a.genero AS anime_genero,
+                    a.classificacao AS anime_classificacao,
+                    a.status AS anime_status,
+                    a.qntd_temporadas AS anime_qntd_temporadas,
+                    a.anoLancamento AS anime_anoLancamento,
+                    a.dataPostagem AS anime_dataPostagem,
+                    a.ovas AS anime_ovas,
+                    a.filmes AS anime_filmes,
+                    a.estudio AS anime_estudio,
+                    a.diretor AS anime_diretor,
+                    a.tipoMidia AS anime_tipoMidia,
+                    e.temporada AS episodio_temporada,
+                    e.numero AS episodio_numero,
+                    e.nome AS episodio_nome,
+                    e.link AS episodio_link,
+                    e.capa_ep AS episodio_capa_ep
+                FROM 
+                    animes a
+                LEFT JOIN 
+                    episodios e ON a.id = e.anime_id
+                WHERE 
+                    a.id IN (
+                        SELECT id FROM animes ORDER BY id ASC LIMIT ? OFFSET ?
+                    )
+                ORDER BY a.id ASC, e.numero ASC;
+            `;
+
+            db.all(query, [RESULTS_PER_PAGE, offset], (error, rows) => {
+                if (error) {
+                    console.error('Erro ao selecionar os dados dos animes:', error);
+                    return res.status(500).send('Erro ao selecionar os dados dos animes do banco de dados.');
                 }
 
-                if (row.episodio_temporada && row.episodio_numero) {
-                    // Adicione todos os dados do episódio ao anime atual
-                    currentAnime.episodios.push({
-                        temporada: row.episodio_temporada,
-                        numero: row.episodio_numero,
-                        nome: row.episodio_nome,
-                        link: row.episodio_link,
-                        capa_ep: row.episodio_capa_ep
-                    });
-                }
-            });
+                // Mapeie os resultados para formatar os dados conforme desejado
+                const animes = [];
+                let currentAnime = null;
 
-            const paginatedAnimes = animes.slice(0, RESULTS_PER_PAGE);
+                rows.forEach(row => {
+                    if (!currentAnime || currentAnime.id !== row.anime_id) {
+                        // Um novo anime foi encontrado
+                        currentAnime = {
+                            id: row.anime_id,
+                            capa: row.anime_capa,
+                            titulo: row.anime_titulo,
+                            tituloAlternativo: row.anime_tituloAlternativo,
+                            selo: row.anime_selo,
+                            sinopse: row.anime_sinopse,
+                            generos: row.anime_genero ? row.anime_genero.split(',') : [],
+                            classificacao: row.anime_classificacao,
+                            status: row.anime_status,
+                            qntd_temporadas: row.anime_qntd_temporadas,
+                            anoLancamento: row.anime_anoLancamento,
+                            dataPostagem: row.anime_dataPostagem,
+                            ovas: row.anime_ovas,
+                            filmes: row.anime_filmes,
+                            estudio: row.anime_estudio,
+                            diretor: row.anime_diretor,
+                            tipoMidia: row.anime_tipoMidia,
+                            episodios: []
+                        };
+                        animes.push(currentAnime);
+                    }
 
-            res.status(200).json({
-                animes: paginatedAnimes,
-                totalPages: totalPages
+                    if (row.episodio_temporada && row.episodio_numero) {
+                        // Adicione todos os dados do episódio ao anime atual
+                        currentAnime.episodios.push({
+                            temporada: row.episodio_temporada,
+                            numero: row.episodio_numero,
+                            nome: row.episodio_nome,
+                            link: row.episodio_link,
+                            capa_ep: row.episodio_capa_ep
+                        });
+                    }
+                });
+
+                const paginatedAnimes = animes.slice(0, RESULTS_PER_PAGE);
+
+                // Retornar os dados no formato desejado
+                res.status(200).json({
+                    animes: paginatedAnimes,
+                    totalPages: totalPages,
+                    totalAnimes: statistics ? statistics.total_animes : null,
+                    totalEpisodios: statistics ? statistics.total_episodios : null
+                });
             });
         });
     });
@@ -1865,6 +1888,47 @@ app.get('/avisoAtivo', (req, res) => {
 
         res.json(row);
     });
+});
+
+
+
+function updateStatistics() {
+    db.serialize(() => {
+        // Consultar o total de animes
+        db.get('SELECT COUNT(*) AS total_animes FROM animes', (err, row) => {
+            if (err) {
+                console.error('Erro ao consultar total de animes:', err);
+                return;
+            }
+            const totalAnimes = row.total_animes;
+
+            // Consultar o total de episódios
+            db.get('SELECT COUNT(*) AS total_episodios FROM episodios', (err, row) => {
+                if (err) {
+                    console.error('Erro ao consultar total de episódios:', err);
+                    return;
+                }
+                const totalEpisodios = row.total_episodios;
+
+                // Atualizar a tabela de estatísticas
+                db.run(`
+                    INSERT INTO estatisticas (total_animes, total_episodios)
+                    VALUES (?, ?)
+                `, [totalAnimes, totalEpisodios], (err) => {
+                    if (err) {
+                        console.error('Erro ao atualizar estatísticas:', err);
+                    } else {
+                        console.log('Estatísticas atualizadas com sucesso');
+                    }
+                });
+            });
+        });
+    });
+}
+
+cron.schedule('0 0 * * *', () => {
+    console.log('Atualizando estatísticas...');
+    updateStatistics();
 });
 
 /// Iniciar o servidor
