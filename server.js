@@ -1870,6 +1870,37 @@ app.post('/enviarAviso', (req, res) => {
     });
 });
 
+app.post('/api/suporte', (req, res) => {
+    const { usuario_id, tipo_report, descricao } = req.body;
+
+    const sql = `INSERT INTO suporte (usuario_id, tipo_report, descricao)
+                 VALUES (?, ?, ?)`;
+
+    db.run(sql, [usuario_id, tipo_report, descricao], function (err) {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({
+            message: "Report inserido com sucesso!",
+            report_id: this.lastID
+        });
+    });
+});
+
+// Rota para listar todos os reports de suporte
+app.get('/api/suporte', (req, res) => {
+    const sql = "SELECT * FROM suporte";
+    
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json({
+            reports: rows
+        });
+    });
+});
+
 app.get('/avisoAtivo', (req, res) => {
     const query = `
         SELECT id, titulo, conteudo, dataHoraPostagem
@@ -1890,8 +1921,6 @@ app.get('/avisoAtivo', (req, res) => {
         res.json(row);
     });
 });
-
-
 
 function updateStatistics() {
     db.serialize(() => {
@@ -1927,9 +1956,27 @@ function updateStatistics() {
     });
 }
 
+function excluirSuportesAntigos() {
+    const sql = `DELETE FROM suporte WHERE data_criacao <= datetime('now', '-30 days')`;
+
+    db.run(sql, function(err) {
+        if (err) {
+            console.error("Erro ao excluir registros antigos:", err.message);
+        } else {
+            console.log(`Registros antigos excluídos: ${this.changes}`);
+        }
+    });
+}
+
+
 cron.schedule('0 0 * * *', () => {
     console.log('Atualizando estatísticas...');
     updateStatistics();
+});
+
+cron.schedule('0 0 */30 * *', () => {
+    console.log('Executando limpeza de dados antigos...');
+    excluirSuportesAntigos();
 });
 
 /// Iniciar o servidor
