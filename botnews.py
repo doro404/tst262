@@ -9,13 +9,13 @@ from datetime import datetime
 # Token do seu bot obtido do BotFather
 bot_token = '7316357488:AAHQbiCSpCqrDZgmfi25vJs2roXInS1aFCU'  # Substitua pelo seu token do BotFather
 
-# ID do canal para onde a mensagem será enviada (deve começar com @ para canais públicos)
-channel_id = '@sousoanimes'  # Substitua pelo ID do seu canal
+# IDs dos canais ou grupos para onde a mensagem será enviada (deve começar com @ para canais públicos)
+chat_ids = ['@sousoanimes', '@sousoanimeschat']  # Substitua pelos IDs dos seus canais ou grupos
 
 # URL base para assistir ao anime
 assistir_url_base = 'https://animesonlinebr.fun/a?id='
 
-# Função assíncrona para enviar uma mensagem para o canal no Telegram
+# Função assíncrona para enviar uma mensagem para múltiplos canais ou grupos no Telegram
 async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
     bot = Bot(token=bot_token)
 
@@ -30,8 +30,9 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
     if len(mensagem) > 1024:
         mensagem = mensagem[:1000] + '...'
 
-    # Enviar foto com a mensagem e o botão inline
-    await bot.send_photo(chat_id=channel_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
+    # Enviar a mensagem e a foto para cada chat_id
+    for chat_id in chat_ids:
+        await bot.send_photo(chat_id=chat_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
 # Função para baixar a imagem de capa
 def baixar_imagem(url):
@@ -120,7 +121,7 @@ async def enviar_detalhes_animes_lancados_hoje():
                 # Executar todas as tarefas de envio simultaneamente
                 await asyncio.gather(*tarefas)
 
-                print('Detalhes dos animes lançados hoje enviados com sucesso para o canal!')
+                print('Detalhes dos animes lançados hoje enviados com sucesso para os canais!')
             else:
                 print('Resposta inválida da rota /animes-lancados-hoje:', data)
         else:
