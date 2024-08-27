@@ -293,13 +293,14 @@ app.post('/login', (req, res) => {
         // Verifique se o usuário foi encontrado
         if (row) {
             // Usuário autenticado com sucesso
-            // Gere um token de autenticação usando JWT
-            const token = jwt.sign({ id: row.id, nome: row.nome, email: row.email }, 'chave_secreta', { expiresIn: '30d' });
-
-            // Envie o token junto com a resposta
-            return res.status(200).json({ message: 'Login bem-sucedido', token });
+            try {
+                const token = jwt.sign({ id: row.id, nome: row.nome, email: row.email }, 'chave_secreta', { expiresIn: '30d' });
+                return res.status(200).json({ message: 'Login bem-sucedido', token });
+            } catch (e) {
+                console.error('Erro ao criar token JWT:', e);
+                return res.status(500).json({ error: 'Erro ao criar token JWT' });
+            }
         } else {
-            // E-mail ou senha incorretos
             return res.status(401).json({ error: 'E-mail ou senha incorretos' });
         }
     });
