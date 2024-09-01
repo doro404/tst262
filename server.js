@@ -19,12 +19,12 @@ const cron = require('node-cron');
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-const allowedDomains = ['https://animesonlinebr.fun/', 'https://animeshiru.site/']; // Permite animesonlinebr.fun e animeshiru.site
+const allowedDomains = ['https://animesonlinebr.fun', 'https://animeshiru.site']; // Permite animesonlinebr.fun e animeshiru.site
 
 app.use(cors({
     origin: function (origin, callback) {
         console.log('Origem:', origin);
-        if (origin && allowedDomains.some(domain => domain.test(origin))) {
+        if (origin && allowedDomains.includes(origin)) {
             callback(null, true);
         } else {
             callback(new Error('Não permitido por CORS'));
