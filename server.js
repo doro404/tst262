@@ -19,7 +19,13 @@ const cron = require('node-cron');
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-const allowedDomains = ['https://animesonlinebr.fun', 'https://animeshiru.site']; // Permite animesonlinebr.fun e animeshiru.site
+const allowedDomains = [
+    'https://animesonlinebr.fun',
+    'https://animeshiru.site',
+    'http://localhost', // Permite localhost
+    'http://localhost:8080', // Exemplo para XAMPP na porta 8080
+    'http://localhost:3000', // Outra porta comum, como em desenvolvimento com React
+]; 
 
 app.use(cors({
     origin: function (origin, callback) {
