@@ -24,13 +24,14 @@ const allowedDomains = [
     'https://animeshiru.site',
     'http://localhost', // Permite localhost
     'http://localhost:8080', // Exemplo para XAMPP na porta 8080
-    'http://localhost:3000', // Outra porta comum, como em desenvolvimento com React
+    'http://localhost:3000', // Outra porta comum
 ]; 
 
 app.use(cors({
     origin: function (origin, callback) {
         console.log('Origem:', origin);
-        if (origin && allowedDomains.includes(origin)) {
+        if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
+            // Permite requisições sem 'Origin', de domínios permitidos, ou de subdomínios do Google
             callback(null, true);
         } else {
             callback(new Error('Não permitido por CORS'));
