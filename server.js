@@ -300,6 +300,8 @@ app.delete('/usuarios/nome/:nome', (req, res) => {
     });
 }); /// Rota para deletar um usuário por nome de usuário
 
+ ///  rota de realizar login no site
+
 app.post('/login', (req, res) => {
     const { user, senha } = req.body;
 
@@ -314,7 +316,7 @@ app.post('/login', (req, res) => {
         if (row) {
             // Usuário autenticado com sucesso
             try {
-                const token = jwt.sign({ id: row.id, nome: row.nome, email: row.email }, 'chave_secreta', { expiresIn: '30d' });
+                const token = jwt.sign({ id: row.id, nome: row.nome, email: row.email, vip: row.vip, admin: row.admin, imagem_perfil: row.imagem_perfil }, 'chave_secreta', { expiresIn: '30d' });
                 return res.status(200).json({ message: 'Login bem-sucedido', token });
             } catch (e) {
                 console.error('Erro ao criar token JWT:', e);
@@ -324,7 +326,7 @@ app.post('/login', (req, res) => {
             return res.status(401).json({ error: 'E-mail ou senha incorretos' });
         }
     });
-}); ///  rota de realizar login no site
+});
 
 app.post('/cadastro', (req, res) => {
     const { user, email, senha } = req.body;
