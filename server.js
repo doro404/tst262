@@ -28,15 +28,7 @@ const allowedDomains = [
 ]; 
 
 app.use(cors({
-    origin: function (origin, callback) {
-        console.log('Origem:', origin);
-        if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
-            // Permite requisições sem 'Origin', de domínios permitidos, ou de subdomínios do Google
-            callback(null, true);
-        } else {
-            callback(new Error('Não permitido por CORS'));
-        }
-    },
+    origin: true, // Permite todas as origens
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
