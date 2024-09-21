@@ -15,6 +15,7 @@ const config = require('./config');
 const { vpsUrl } = require('./config');
 const compression = require('compression');
 const cron = require('node-cron');
+const puppeteer = require('puppeteer');
 
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
@@ -28,7 +29,15 @@ const allowedDomains = [
 ]; 
 
 app.use(cors({
-    origin: true, // Permite todas as origens
+    origin: function (origin, callback) {
+        console.log('Origem:', origin);
+        if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
+            // Permite requisições sem 'Origin', de domínios permitidos, ou de subdomínios do Google
+            callback(null, true);
+        } else {
+            callback(new Error('Não permitido por CORS'));
+        }
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
@@ -1884,6 +1893,71 @@ app.post('/enviarAviso', (req, res) => {
         }
     });
 });
+
+const waitFor = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+app.get('/saika-video', async (req, res) => {
+    const videoUrl = req.query.url;
+
+    if (!videoUrl) {
+        return res.status(400).json({ error: 'Por favor, forneça a URL do vídeo.' });
+    }
+
+    try {
+        // Inicia o Puppeteer e abre um navegador
+        const browser = await puppeteer.launch({
+            executablePath: '/usr/bin/google-chrome', // Caminho para o executável do Chrome no Ubuntu
+            headless: false // Defina como false para depuração
+        });
+        const page = await browser.newPage();
+
+        // Navega até a página do vídeo
+        await page.goto(videoUrl, { waitUntil: 'networkidle2' });
+
+        // Clica no botão de reprodução com a classe `play-button`
+        await page.click('.play-button');
+
+        // Adiciona um atraso para garantir que o conteúdo carregue
+        await waitFor(5000); // 5 segundos em milissegundos
+
+        // Obtém todos os iframes
+        const iframes = page.frames();
+        console.log('iframes encontrados:', iframes.map(f => f.url()));
+
+        // Encontra o iframe correto
+        const frame = iframes.find(f => f.url().includes('youtube.googleapis.com'));
+
+        if (!frame) {
+            throw new Error('Iframe não encontrado.');
+        }
+
+        // Aguarda a carga do iframe e obtém o HTML do iframe
+        await frame.waitForSelector('body', { timeout: 10000 }); // Espera o body ser carregado
+
+        // Captura o link do vídeo diretamente
+        const mp4Link = await frame.evaluate(() => {
+            const videoElement = document.querySelector('video');
+            if (videoElement) {
+                return videoElement.src; // Retorna o link MP4
+            }
+            return null;
+        });
+
+        await browser.close();
+
+        if (mp4Link) {
+            return res.json({ mp4: mp4Link });
+        } else {
+            return res.status(404).json({ error: 'Link MP4 não encontrado.' });
+        }
+
+    } catch (error) {
+        console.error('Erro ao extrair o vídeo:', error);
+        return res.status(500).json({ error: 'Erro ao tentar extrair o vídeo.' });
+    }
+});
+
+
 
 app.post('/api/suporte', (req, res) => {
     const { usuario_id, tipo_report, descricao } = req.body;
