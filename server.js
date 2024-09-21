@@ -1915,6 +1915,7 @@ app.get('/saika-video', async (req, res) => {
         // Navega até a página do vídeo
         await page.goto(videoUrl, { waitUntil: 'networkidle2' });
 
+        await waitFor(4000); // 5 segundos em milissegundos
         // Clica no botão de reprodução com a classe `play-button`
         await page.click('.play-button');
 
