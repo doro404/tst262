@@ -15,7 +15,7 @@ const config = require('./config');
 const { vpsUrl } = require('./config');
 const compression = require('compression');
 const cron = require('node-cron');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
@@ -1906,10 +1906,9 @@ app.get('/saika-video', async (req, res) => {
     try {
         // Inicia o Puppeteer e abre um navegador
         const browser = await puppeteer.launch({
-            executablePath: '/usr/bin/google-chrome', // Caminho para o executável do Chrome no Ubuntu
-            headless: true, // Defina como false para depuração
-            args: ['--no-sandbox', '--disable-setuid-sandbox'] // Add these flags
-
+            executablePath: '/usr/bin/chromium-browser', // Caminho para o executável do Chromium no Ubuntu
+            headless: true, // Defina como true para produção
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] // Adiciona essas flags
         });
         const page = await browser.newPage();
 
@@ -1920,7 +1919,7 @@ app.get('/saika-video', async (req, res) => {
         await page.click('.play-button');
 
         // Adiciona um atraso para garantir que o conteúdo carregue
-        await waitFor(5000); // 5 segundos em milissegundos
+        await waitFor(8000); // 5 segundos em milissegundos
 
         // Obtém todos os iframes
         const iframes = page.frames();
