@@ -1907,7 +1907,9 @@ app.get('/saika-video', async (req, res) => {
         // Inicia o Puppeteer e abre um navegador
         const browser = await puppeteer.launch({
             executablePath: '/usr/bin/google-chrome', // Caminho para o executável do Chrome no Ubuntu
-            headless: true // Defina como false para depuração
+            headless: true, // Defina como false para depuração
+            args: ['--no-sandbox', '--disable-setuid-sandbox'] // Add these flags
+
         });
         const page = await browser.newPage();
 
