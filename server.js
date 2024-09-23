@@ -23,6 +23,7 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 const allowedDomains = [
     'https://animesonlinebr.fun',
     'https://animeshiru.site',
+    'https://doroanimes.site',
     'http://localhost', // Permite localhost
     'http://localhost:8080', // Exemplo para XAMPP na porta 8080
     'http://localhost:3000', // Outra porta comum
