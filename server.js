@@ -660,6 +660,34 @@ app.put('/catalogo/:id', (req, res) => {
         });
 });/// rota pra editar um anime existente ja no banco de dados pelo ID
 
+app.post('/marcar-alerta', (req, res) => {
+    const { anime_id, numero } = req.body;
+
+    if (!anime_id || !numero) {
+        return res.status(400).json({ error: 'Parâmetros obrigatórios não fornecidos' });
+    }
+
+    // Atualizar o alerta no banco de dados
+    db.run(
+        `UPDATE episodios
+         SET alertanovoep = 0
+         WHERE anime_id = ? AND numero = ?`,
+        [anime_id, numero],
+        function (err) {
+            if (err) {
+                console.error(err.message);
+                return res.status(500).json({ error: 'Erro ao atualizar o alerta' });
+            }
+            if (this.changes === 0) {
+                return res.status(404).json({ message: 'Nenhum episódio encontrado para atualizar' });
+            }
+            res.status(200).json({ message: 'Alerta marcado como 0 com sucesso' });
+        }
+    );
+});
+
+
+
 app.get('/todosAnimes/:id?', (req, res) => {
     const animeId = req.params.id;
 
