@@ -621,12 +621,13 @@ app.put('/catalogo/:id', (req, res) => {
                         episodio.nome,
                         episodio.link,
                         episodio.capa_ep,
-                        animeId
+                        animeId,
+                        episodio.alertanovoep || 0 
                     ];
     
                     const insertEpisodeQuery = `
-                        INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id) 
-                        VALUES (?, ?, ?, ?, ?, ?);
+                    INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id, alertanovoep) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?);
                     `;
                     db.run(insertEpisodeQuery, episodeValues, (error) => {
                         if (error) {
@@ -657,7 +658,7 @@ app.put('/catalogo/:id', (req, res) => {
             console.error(error);
             return res.status(500).send(error);
         });
-}); /// rota pra editar um anime existente ja no banco de dados pelo ID
+});/// rota pra editar um anime existente ja no banco de dados pelo ID
 
 app.get('/todosAnimes/:id?', (req, res) => {
     const animeId = req.params.id;
@@ -689,6 +690,7 @@ app.get('/todosAnimes/:id?', (req, res) => {
                 e.nome AS nome_episodio,
                 e.link,
                 e.capa_ep,
+                e.alertanovoep,  
                 a.visualizacoes AS visualizacoes
             FROM 
                 animes a
@@ -742,7 +744,8 @@ app.get('/todosAnimes/:id?', (req, res) => {
                         numero: row.numero,
                         nome: row.nome_episodio,
                         link: row.link,
-                        capa_ep: row.capa_ep
+                        capa_ep: row.capa_ep,
+                        alertanovoep: row.alertanovoep 
                     });
                 }
             });
@@ -776,6 +779,7 @@ app.get('/todosAnimes/:id?', (req, res) => {
                 e.nome AS nome_episodio,
                 e.link,
                 e.capa_ep,
+                e.alertanovoep,
                 a.visualizacoes AS visualizacoes
             FROM 
                 animes a
@@ -829,7 +833,8 @@ app.get('/todosAnimes/:id?', (req, res) => {
                         numero: row.numero,
                         nome: row.nome_episodio,
                         link: row.link,
-                        capa_ep: row.capa_ep
+                        capa_ep: row.capa_ep,
+                        alertanovoep: row.alertanovoep 
                     });
                 }
             });
@@ -1752,7 +1757,8 @@ app.get('/animesRecentes', (req, res) => {
 app.get('/animes-lancados-hoje', (req, res) => {
     const hoje = new Date().toISOString().split('T')[0]; // Data atual no formato YYYY-MM-DD
 
-    const query = `
+    // Consulta para obter os animes lançados hoje
+    const queryAnimes = `
         SELECT 
             a.id,
             a.capa,
@@ -1785,17 +1791,52 @@ app.get('/animes-lancados-hoje', (req, res) => {
             a.dataPostagem = ?;
     `;
 
-    db.all(query, [hoje], (err, rows) => {
+    // Consulta para obter os episódios com alertanovoep = 1 e informações dos animes relacionados
+    const queryEpisodiosAlert = `
+        SELECT 
+            e.temporada,
+            e.numero,
+            e.nome AS nome_episodio,
+            e.link,
+            e.capa_ep,
+            e.anime_id,
+            a.capa AS anime_capa,
+            a.titulo AS anime_titulo,
+            a.tituloAlternativo AS anime_tituloAlternativo,
+            a.selo AS anime_selo,
+            a.sinopse AS anime_sinopse,
+            a.genero AS anime_genero,
+            a.classificacao AS anime_classificacao,
+            a.status AS anime_status,
+            a.qntd_temporadas AS anime_qntd_temporadas,
+            a.anoLancamento AS anime_anoLancamento,
+            a.dataPostagem AS anime_dataPostagem,
+            a.ovas AS anime_ovas,
+            a.filmes AS anime_filmes,
+            a.estudio AS anime_estudio,
+            a.diretor AS anime_diretor,
+            a.tipoMidia AS anime_tipoMidia,
+            a.visualizacoes AS anime_visualizacoes
+        FROM 
+            episodios e
+        JOIN 
+            animes a ON e.anime_id = a.id
+        WHERE 
+            e.alertanovoep = 1;
+    `;
+
+    // Primeira consulta: Animes lançados hoje
+    db.all(queryAnimes, [hoje], (err, rowsAnimes) => {
         if (err) {
             console.error(err);
             res.status(500).json({ error: 'Erro ao buscar animes lançados hoje' });
             return;
         }
 
-        // Organizar os dados em um formato mais adequado, se necessário
+        // Organizar os dados dos animes lançados hoje
         const animesCompletos = {};
 
-        rows.forEach(row => {
+        rowsAnimes.forEach(row => {
             if (!animesCompletos[row.id]) {
                 animesCompletos[row.id] = {
                     id: row.id,
@@ -1820,7 +1861,7 @@ app.get('/animes-lancados-hoje', (req, res) => {
                 };
             }
 
-            // Adicionar os episódios associados ao anime
+            // Adicionar episódios ao anime, se houver
             if (row.temporada && row.numero) {
                 animesCompletos[row.id].episodios.push({
                     temporada: row.temporada,
@@ -1832,10 +1873,52 @@ app.get('/animes-lancados-hoje', (req, res) => {
             }
         });
 
-        // Converter o objeto em um array de animes completos
-        const result = Object.values(animesCompletos);
+        // Converter o objeto de animes completos em um array
+        const animesResult = Object.values(animesCompletos);
 
-        res.json(result);
+        // Segunda consulta: Episódios com alertanovoep = 1 e informações dos animes relacionados
+        db.all(queryEpisodiosAlert, (errAlert, rowsEpisodios) => {
+            if (errAlert) {
+                console.error(errAlert);
+                res.status(500).json({ error: 'Erro ao buscar episódios com novo alerta' });
+                return;
+            }
+
+            // Organizar os dados dos episódios com alertanovoep = 1
+            const episodiosNovos = rowsEpisodios.map(row => ({
+                temporada: row.temporada,
+                numero: row.numero,
+                nome: row.nome_episodio,
+                link: row.link,
+                capa_ep: row.capa_ep,
+                anime: {
+                    id: row.anime_id,
+                    capa: row.anime_capa,
+                    titulo: row.anime_titulo,
+                    tituloAlternativo: row.anime_tituloAlternativo,
+                    selo: row.anime_selo,
+                    sinopse: row.anime_sinopse,
+                    genero: row.anime_genero,
+                    classificacao: row.anime_classificacao,
+                    status: row.anime_status,
+                    qntd_temporadas: row.anime_qntd_temporadas,
+                    anoLancamento: row.anime_anoLancamento,
+                    dataPostagem: row.anime_dataPostagem,
+                    ovas: row.anime_ovas,
+                    filmes: row.anime_filmes,
+                    estudio: row.anime_estudio,
+                    diretor: row.anime_diretor,
+                    tipoMidia: row.anime_tipoMidia,
+                    visualizacoes: row.anime_visualizacoes
+                }
+            }));
+
+            // Responder com animes lançados hoje e episódios com alertanovoep = 1
+            res.json({
+                animesCompletos: animesResult,  // Animes lançados hoje
+                episodiosNovos: episodiosNovos   // Episódios com alertanovoep = 1 e informações dos animes relacionados
+            });
+        });
     });
 });
 app.post('/enviarAviso', (req, res) => {
