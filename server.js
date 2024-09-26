@@ -20,6 +20,10 @@ const puppeteer = require('puppeteer-core');
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+
+const isCorsEnabled = true; // Altere para `false` para permitir apenas domínios específicos
+
+// Domínios permitidos específicos
 const allowedDomains = [
     'https://animesonlinebr.fun',
     'https://animeshiru.site',
@@ -27,16 +31,21 @@ const allowedDomains = [
     'http://localhost', // Permite localhost
     'http://localhost:8080', // Exemplo para XAMPP na porta 8080
     'http://localhost:3000', // Outra porta comum
-]; 
+];
 
+// Configuração do CORS
 app.use(cors({
     origin: function (origin, callback) {
-        console.log('Origem:', origin);
-        if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
-            // Permite requisições sem 'Origin', de domínios permitidos, ou de subdomínios do Google
+        if (isCorsEnabled) {
+            // Permitir todas as origens se `isCorsEnabled` for `true`
             callback(null, true);
         } else {
-            callback(new Error('Não permitido por CORS'));
+            // Permitir apenas domínios específicos
+            if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
+                callback(null, true);
+            } else {
+                callback(new Error('Não permitido por CORS'));
+            }
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
