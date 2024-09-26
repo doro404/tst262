@@ -154,6 +154,11 @@ async def enviar_detalhes_animes_lancados_hoje():
                 for anime in data['animesCompletos']:
                     anime_id = anime['id']
                     
+                    # Verificar se o anime já foi enviado
+                    if anime_ja_enviado(anime_id):
+                        print(f"Anime {anime_id} já foi enviado, pulando...")
+                        continue  # Pular para o próximo anime
+
                     imagem = baixar_imagem(anime.get('capa', ''))
                     if imagem:
                         mensagem = (
@@ -168,12 +173,23 @@ async def enviar_detalhes_animes_lancados_hoje():
                             f'📝 Sinopse: {anime.get("sinopse", "Desconhecida")}\n\n'
                         )
 
+                        # Adicionar o anime à lista de tarefas para envio
                         tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
+
+                        # Marcar o anime como enviado no banco de dados
+                        marcar_anime_como_enviado(anime_id)
 
                 for episodio in data['episodiosNovos']:
                     anime = episodio.get('anime', {})
                     anime_id = anime.get('id', None)
                     episodio_numero = episodio.get('numero', "Desconhecido")
+                    
+                    # Verificar se o episódio já foi enviado
+                    episodio_id = f"{anime_id}-{episodio_numero}"
+                    if episodio_ja_enviado(episodio_id):
+                        print(f"Episódio {episodio_numero} do anime {anime_id} já foi enviado, pulando...")
+                        continue  # Pular para o próximo episódio
+
                     imagem_ep = baixar_imagem(episodio.get('capa_ep', ''))
                     if imagem_ep:
                         link_ep = f'https://animesonlinebr.fun/d?id={anime_id}&ep={episodio_numero}'
@@ -186,9 +202,12 @@ async def enviar_detalhes_animes_lancados_hoje():
                             f'📅 Data de Postagem: {data_atual}\n\n'
                         )
 
-                        tarefas.append(asyncio.create_task(
-                            enviar_mensagem_no_canal_ep(mensagem, imagem_ep, anime_id, episodio_numero)
-                        ))
+                        # Adicionar o episódio à lista de tarefas para envio
+                        tarefas.append(enviar_mensagem_no_canal_ep(mensagem, imagem_ep, anime_id, episodio_numero))
+
+                        # Marcar o episódio como enviado no banco de dados
+
+                        # Marcar alerta
                         tarefas.append(asyncio.create_task(
                             asyncio.to_thread(marcar_alerta, anime_id, episodio_numero)
                         ))
@@ -201,6 +220,7 @@ async def enviar_detalhes_animes_lancados_hoje():
             print('Erro ao buscar detalhes dos animes lançados hoje:', response.status_code)
     except Exception as e:
         print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
+
 
 # Função principal para iniciar o processo
 async def main():
