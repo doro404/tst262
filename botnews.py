@@ -120,10 +120,6 @@ def marcar_alerta(anime_id, episodio_numero):
     except Exception as e:
         print(f'Erro ao marcar alerta: {str(e)}')
 
-# Função para buscar e enviar detalhes dos animes lançados hoje
-import requests
-import asyncio
-
 async def enviar_detalhes_animes_lancados_hoje():
     try:
         response = requests.get('https://saikanet.online:3000/animes-lancados-hoje')
@@ -159,18 +155,25 @@ async def enviar_detalhes_animes_lancados_hoje():
                 for episodio in data['episodiosNovos']:
                     anime = episodio.get('anime', {})
                     anime_id = anime.get('id', None)
-
+                    episodio_numero = episodio.get('numero', "Desconhecido")
                     imagem_ep = baixar_imagem(episodio.get('capa_ep', ''))
                     if imagem_ep:
+                        link_ep = f'https://animesonlinebr.fun/d?id={anime_id}&ep={episodio_numero}'
+                        data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         mensagem = (
                             f'🎥 Novo Episódio: {episodio.get("nome", "Desconhecido")}\n\n'
                             f'📺 Anime: {anime.get("titulo", "Desconhecido")}\n'
                             f'🎬 Episódio: {episodio.get("numero", "Desconhecido")}\n'
-                            f'🔗 Link: {episodio.get("link", "Desconhecido")}\n'
-                            f'📅 Data de Postagem: {episodio.get("dataPostagem", "Desconhecida")}\n\n'
+                            f'🔗 Link: {link_ep}\n'
+                            f'📅 Data de Postagem: {data_atual}\n\n'
                         )
 
-                        tarefas.append(enviar_mensagem_no_canal(mensagem, imagem_ep, anime_id))
+                        tarefas.append(asyncio.create_task(
+                            enviar_mensagem_no_canal(mensagem, imagem_ep, anime_id)
+                        ))
+                        tarefas.append(asyncio.create_task(
+                            asyncio.to_thread(marcar_alerta, anime_id, episodio_numero)
+                        ))
 
                 await asyncio.gather(*tarefas)
                 print('Detalhes dos animes e episódios enviados com sucesso para os canais!')
@@ -181,71 +184,14 @@ async def enviar_detalhes_animes_lancados_hoje():
     except Exception as e:
         print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
 
-
-
-# Função para buscar e enviar detalhes dos episódios novos
-async def enviar_detalhes_episodios_novos():
-    try:
-        # Realizar uma solicitação GET para a rota /episodios-novos da sua aplicação
-        response = requests.get('https://saikanet.online:3000/episodios-novos')
-
-        # Verificar se a resposta contém dados válidos
-        if response.status_code == 200:
-            data = response.json()
-
-            # Verificar se os dados são um dicionário
-            if isinstance(data, dict) and 'episodios' in data:
-                tarefas = []
-                # Iterar sobre os episódios retornados
-                for episodio in data['episodios']:
-                    episodio_id = episodio['id']
-                    anime_id = episodio['anime_id']
-                    episodio_numero = episodio['numero']
-
-                    # Verificar se o episódio já foi enviado anteriormente
-                    if not episodio_ja_enviado(episodio_id):
-                        # Baixar a imagem de capa
-                        imagem = baixar_imagem(episodio.get('capa_ep', ''))
-                        if imagem:
-                            # Formatar a mensagem com os detalhes do episódio
-                            mensagem = (
-                                f'🎬 Novo Episódio: {episodio["descricao"]}\n\n'
-                                f'📺 Anime: {anime_id}\n'
-                                f'📅 Temporada: {episodio["temporada"]}\n'
-                                f'🆚 Episódio: {episodio_numero}\n'
-                                f'🔗 Link: {episodio["link"]}\n\n'
-                            )
-
-                            # Adicionar a tarefa de envio ao array de tarefas
-                            tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
-
-                            # Marcar o episódio como enviado
-                            marcar_episodio_como_enviado(episodio_id, anime_id, episodio_numero)
-                            
-                            # Chamar a rota /marcar-alerta
-                            marcar_alerta(anime_id, episodio_numero)
-                
-                # Executar todas as tarefas de envio simultaneamente
-                await asyncio.gather(*tarefas)
-
-                print('Detalhes dos episódios novos enviados com sucesso para os canais!')
-            else:
-                print('Resposta inválida da rota /episodios-novos:', data)
-        else:
-            print('Erro ao buscar detalhes dos episódios novos:', response.status_code)
-    except Exception as e:
-        print('Erro ao buscar ou enviar detalhes dos episódios novos:', str(e))
-
 # Função principal para iniciar o processo
 async def main():
     print('Iniciando verificação imediata dos animes lançados hoje e episódios novos...')
     await enviar_detalhes_animes_lancados_hoje()
-    await enviar_detalhes_episodios_novos()
     print('Verificação imediata concluída.')
     
     while True:
         await enviar_detalhes_animes_lancados_hoje()
-        await enviar_detalhes_episodios_novos()
         # Esperar por uma hora antes de verificar novamente
         await asyncio.sleep(3600)
 
