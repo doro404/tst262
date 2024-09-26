@@ -34,24 +34,7 @@ const allowedDomains = [
 ];
 
 // Configuração do CORS
-app.use(cors({
-    origin: function (origin, callback) {
-        console.log('Origin:', origin); // Verifica a origem
-        if (isCorsEnabled) {
-            callback(null, true);
-        } else {
-            if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
-                callback(null, true);
-            } else {
-                console.log('Bloqueado por CORS:', origin); // Log de bloqueio
-                callback(new Error('Não permitido por CORS'));
-            }
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-}));
-
+app.use(cors());
 const httpsOptions = {
     key: fs.readFileSync('/etc/letsencrypt/live/saikanet.online/privkey.pem'),
     cert: fs.readFileSync('/etc/letsencrypt/live/saikanet.online/fullchain.pem')
