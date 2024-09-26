@@ -126,68 +126,53 @@ import asyncio
 
 async def enviar_detalhes_animes_lancados_hoje():
     try:
-        # Realizar uma solicitação GET para a rota /animes-lancados-hoje da sua aplicação
         response = requests.get('https://saikanet.online:3000/animes-lancados-hoje')
-
-        # Verificar e imprimir detalhes da resposta para depuração
         print(f"URL chamada: {response.url}")
         print(f"Status Code: {response.status_code}")
         print(f"Conteúdo da resposta: {response.text}")
 
-        # Verificar se a resposta contém dados válidos
         if response.status_code == 200:
             data = response.json()
 
-            # Verificar se os dados têm as chaves esperadas
             if 'animesCompletos' in data and 'episodiosNovos' in data:
                 tarefas = []
 
-                # Processar animes completos
                 for anime in data['animesCompletos']:
                     anime_id = anime['id']
                     
-                    # Baixar a imagem de capa
-                    imagem = baixar_imagem(anime['capa'])
+                    imagem = baixar_imagem(anime.get('capa', ''))
                     if imagem:
-                        # Formatar a mensagem com os detalhes do anime e o link da capa
                         mensagem = (
-                            f'📺 Detalhes do Anime: {anime["titulo"]}\n\n'
-                            f'🎬 Título: {anime["titulo"]}\n'
-                            f'🏷️ Selo: {anime["selo"]}\n'
-                            f'🎨 Estúdio: {anime["estudio"]}\n'
-                            f'📅 Data de Postagem: {anime["dataPostagem"]}\n'
-                            f'🎭 Gênero: {anime["genero"]}\n'
-                            f'🔞 Classificação: {anime["classificacao"]}\n'
-                            f'📅 Ano de Lançamento: {anime["anoLancamento"]}\n\n'
-                            f'📝 Sinopse: {anime["sinopse"]}\n\n'
+                            f'📺 Detalhes do Anime: {anime.get("titulo", "Desconhecido")}\n\n'
+                            f'🎬 Título: {anime.get("titulo", "Desconhecido")}\n'
+                            f'🏷️ Selo: {anime.get("selo", "Desconhecido")}\n'
+                            f'🎨 Estúdio: {anime.get("estudio", "Desconhecido")}\n'
+                            f'📅 Data de Postagem: {anime.get("dataPostagem", "Desconhecida")}\n'
+                            f'🎭 Gênero: {anime.get("genero", "Desconhecido")}\n'
+                            f'🔞 Classificação: {anime.get("classificacao", "Desconhecida")}\n'
+                            f'📅 Ano de Lançamento: {anime.get("anoLancamento", "Desconhecido")}\n\n'
+                            f'📝 Sinopse: {anime.get("sinopse", "Desconhecida")}\n\n'
                         )
 
-                        # Adicionar a tarefa de envio ao array de tarefas
                         tarefas.append(enviar_mensagem_no_canal(mensagem, imagem, anime_id))
 
-                # Processar episódios novos
                 for episodio in data['episodiosNovos']:
-                    anime = episodio['anime']
-                    anime_id = anime['id']
+                    anime = episodio.get('anime', {})
+                    anime_id = anime.get('id', None)
 
-                    # Baixar a imagem de capa do episódio
-                    imagem_ep = baixar_imagem(episodio['capa_ep'])
+                    imagem_ep = baixar_imagem(episodio.get('capa_ep', ''))
                     if imagem_ep:
-                        # Formatar a mensagem com os detalhes do episódio
                         mensagem = (
-                            f'🎥 Novo Episódio: {episodio["nome"]}\n\n'
-                            f'📺 Anime: {anime["titulo"]}\n'
-                            f'🎬 Episódio: {episodio["numero"]}\n'
-                            f'🔗 Link: {episodio["link"]}\n'
-                            f'📅 Data de Postagem: {episodio["dataPostagem"]}\n\n'
+                            f'🎥 Novo Episódio: {episodio.get("nome", "Desconhecido")}\n\n'
+                            f'📺 Anime: {anime.get("titulo", "Desconhecido")}\n'
+                            f'🎬 Episódio: {episodio.get("numero", "Desconhecido")}\n'
+                            f'🔗 Link: {episodio.get("link", "Desconhecido")}\n'
+                            f'📅 Data de Postagem: {episodio.get("dataPostagem", "Desconhecida")}\n\n'
                         )
 
-                        # Adicionar a tarefa de envio ao array de tarefas
                         tarefas.append(enviar_mensagem_no_canal(mensagem, imagem_ep, anime_id))
 
-                # Executar todas as tarefas de envio simultaneamente
                 await asyncio.gather(*tarefas)
-
                 print('Detalhes dos animes e episódios enviados com sucesso para os canais!')
             else:
                 print('Resposta inválida da rota /animes-lancados-hoje: Dados ausentes ou mal formatados')
@@ -195,6 +180,7 @@ async def enviar_detalhes_animes_lancados_hoje():
             print('Erro ao buscar detalhes dos animes lançados hoje:', response.status_code)
     except Exception as e:
         print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
+
 
 
 # Função para buscar e enviar detalhes dos episódios novos
