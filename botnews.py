@@ -129,7 +129,9 @@ async def enviar_detalhes_animes_lancados_hoje():
         # Verificar se a resposta contém dados válidos
         if response.status_code == 200:
             data = response.json()
-
+            print(f"URL chamada: {response.url}")
+            print(f"Status Code: {response.status_code}")
+            print(f"Conteúdo da resposta: {response.text}")
             # Verificar se os dados são uma lista
             if isinstance(data, list):
                 tarefas = []
