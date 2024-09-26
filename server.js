@@ -36,14 +36,14 @@ const allowedDomains = [
 // Configuração do CORS
 app.use(cors({
     origin: function (origin, callback) {
+        console.log('Origin:', origin); // Verifica a origem
         if (isCorsEnabled) {
-            // Permitir todas as origens se `isCorsEnabled` for `true`
             callback(null, true);
         } else {
-            // Permitir apenas domínios específicos
             if (!origin || allowedDomains.includes(origin) || origin.endsWith('.google.com')) {
                 callback(null, true);
             } else {
+                console.log('Bloqueado por CORS:', origin); // Log de bloqueio
                 callback(new Error('Não permitido por CORS'));
             }
         }
