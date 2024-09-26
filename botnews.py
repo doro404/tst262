@@ -37,6 +37,24 @@ async def enviar_mensagem_no_canal(mensagem, url_imagem, anime_id):
     for chat_id in chat_ids:
         await bot.send_photo(chat_id=chat_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
 
+async def enviar_mensagem_no_canal_ep(mensagem, url_imagem, anime_id, episodio_numero):
+    bot = Bot(token=bot_token)
+
+    # Criar o botão inline "Assista Aqui"
+    button_text = 'Assista Aqui'
+    button_url = f'https://animesonlinebr.fun/d?id={anime_id}&ep={episodio_numero}'
+    keyboard = InlineKeyboardMarkup(
+        [[InlineKeyboardButton(button_text, url=button_url)]]
+    )
+
+    # Truncar a mensagem se for muito longa
+    if len(mensagem) > 1024:
+        mensagem = mensagem[:1000] + '...'
+
+    # Enviar a mensagem e a foto para cada chat_id
+    for chat_id in chat_ids:
+        await bot.send_photo(chat_id=chat_id, photo=url_imagem, caption=mensagem, reply_markup=keyboard)
+
 # Função para baixar a imagem de capa
 def baixar_imagem(url):
     try:
@@ -109,7 +127,7 @@ def marcar_episodio_como_enviado(episodio_id, anime_id, episodio):
 # Função para chamar a rota /marcar-alerta
 def marcar_alerta(anime_id, episodio_numero):
     try:
-        response = requests.put(marcar_alerta_url, json={
+        response = requests.post(marcar_alerta_url, json={
             'anime_id': anime_id,
             'numero': episodio_numero
         })
@@ -169,7 +187,7 @@ async def enviar_detalhes_animes_lancados_hoje():
                         )
 
                         tarefas.append(asyncio.create_task(
-                            enviar_mensagem_no_canal(mensagem, imagem_ep, anime_id)
+                            enviar_mensagem_no_canal_ep(mensagem, imagem_ep, anime_id, episodio_numero)
                         ))
                         tarefas.append(asyncio.create_task(
                             asyncio.to_thread(marcar_alerta, anime_id, episodio_numero)
