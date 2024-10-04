@@ -2625,8 +2625,6 @@ app.post('/adicionarEpisodio', (req, res) => {
 
 
 
-
-
 app.get('/buscarEpisodios', async (req, res) => {
     const resultados = [];
 
@@ -2829,7 +2827,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                             const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
                                             return episodeElements.map(element => element.href);
                                         }); 
-                                        const BATCH_SIZE = 7; // Número de abas abertas simultaneamente
+                                        const BATCH_SIZE = 5; // Número de abas abertas simultaneamente
 
                                         async function processEpisodesInOrder(episodeLinks, vpsUrl) {
                                             // Iterar sobre os links em lotes de 5
@@ -2849,7 +2847,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             console.log(`Acessando o link: ${url}`);
                                                             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
                                                             await page.waitForSelector('.videoBox', { timeout: 10000 });
-                                                            await wait(5000);
+                                                            await wait(10000);
                                         
                                                             const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                         
@@ -3043,8 +3041,6 @@ app.get('/buscarEpisodios', async (req, res) => {
     await browser.close();
     res.status(200).json({ resultados });
 });
-
-
 
 
 
