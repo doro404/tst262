@@ -16,9 +16,7 @@ const { vpsUrl } = require('./config');
 const compression = require('compression');
 const cron = require('node-cron');
 const puppeteer = require('puppeteer-core');
-const request = require('request');  // Pacote para fazer requisições HTTP
-const axios = require('axios');
-
+const fetch = require('node-fetch');
 app.use(compression());
 app.use(bodyParser.json({ limit: '50mb' })); // Define o limite máximo para 50MB
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
