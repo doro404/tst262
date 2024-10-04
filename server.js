@@ -2632,6 +2632,7 @@ app.get('/buscarEpisodios', async (req, res) => {
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/google-chrome',
         headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const sites = [
         { url: 'https://animeq.blog/' }
@@ -2710,7 +2711,32 @@ app.get('/buscarEpisodios', async (req, res) => {
                         await page.waitForSelector('.videoBox', { timeout: 10000 });
                         await wait(5000);
                     
-                        const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
+                        const htmlContent = await page.evaluate(() => {
+                            // Captura o conteúdo HTML da página
+                            const content = document.documentElement.innerHTML;
+                        
+                            // Remove tags <script>, <style> e <svg>
+                            const cleanedContent = content
+                                .replace(/<script[^>]*>([\s\S]*?)<\/script>/gi, '') // Remove <script>
+                                .replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, '') // Remove <style>
+                                .replace(/<svg[^>]*>([\s\S]*?)<\/svg>/gi, ''); // Remove <svg>
+                        
+                            // Cria um elemento temporário para manipular o HTML
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = cleanedContent;
+                        
+                            // Remove todos os atributos style
+                            const elementsWithStyle = tempDiv.querySelectorAll('[style]');
+                            elementsWithStyle.forEach(element => {
+                                element.removeAttribute('style');
+                            });
+                        
+                            // Seleciona apenas a div com a classe 'Single'
+                            const singleDiv = tempDiv.querySelector('.EPvideo');
+                            return singleDiv ? singleDiv.innerHTML : null; // Retorna o conteúdo da div 'Single' ou null se não existir
+                        });
+                        
+                        console.log(htmlContent);
                     
                         const temporada = 1;
                         console.log(`Temporada definida: ${temporada}`);
@@ -2870,8 +2896,12 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                                     element.removeAttribute('style');
                                                                 });
                                                             
-                                                                return tempDiv.innerHTML; // Retorna o conteúdo filtrado
+                                                                // Seleciona apenas a div com a classe 'Single'
+                                                                const singleDiv = tempDiv.querySelector('.EPvideo');
+                                                                return singleDiv ? singleDiv.innerHTML : null; // Retorna o conteúdo da div 'Single' ou null se não existir
                                                             });
+                                                            
+                                                            console.log(htmlContent);
                                                             
                                                             console.log(htmlContent);
                                                             const temporada = 1;
