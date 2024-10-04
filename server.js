@@ -2770,9 +2770,12 @@ app.get('/buscarEpisodios', async (req, res) => {
                             try {
                                 console.log(vpsUrl);
                             
-                                // Usando a URL importada como domínio para a solicitação
-                                const response = await axios.post(`${vpsUrl}/adicionarEpisodio`, episodioData);
-                            
+                                try {
+                                    const response = await axios.post(`${vpsUrl}/adicionarEpisodio`, episodioData);
+                                    console.log('Resposta do servidor:', response);
+                                } catch (error) {
+                                    console.error('Erro ao enviar dados para a rota:', error);
+                                }
                                 // Verifica a resposta da API
                                 if (response.data.message === "O número do episódio deve ser o próximo na sequência ou o primeiro.") {
                                     console.log("Ação alternativa: O número do episódio está fora de sequência.");
