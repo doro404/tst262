@@ -2838,9 +2838,9 @@ app.get('/buscarEpisodios', async (req, res) => {
                                         const BATCH_SIZE = 25; // Número de abas abertas simultaneamente
 
                                         async function processEpisodesInOrder(episodeLinks, vpsUrl) {
-                                            // Iterar sobre os links em lotes de 5
+                                            // Iterar sobre os links em lotes de 25
                                             for (let i = 0; i < episodeLinks.length; i += BATCH_SIZE) {
-                                                const batch = episodeLinks.slice(i, i + BATCH_SIZE);
+                                                const batch = episodeLinks.slice(i, i + BATCH_SIZE); // Seleciona até 25 links por vez, ou menos se for o último lote
                                                 
                                                 // Criar uma matriz de promessas para processar os episódios em paralelo
                                                 const promises = batch.map(async (url) => {
@@ -2848,21 +2848,20 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                     let attempts = 0; // Contador de tentativas
                                                     let linksEncontrados = [];
                                                     const maxAttempts = 3; // Número máximo de tentativas
-                                        
+
                                                     while (attempts < maxAttempts && linksEncontrados.length === 0) {
                                                         try {
-
                                                             console.log("Processing episode:", url);
                                                             console.log(`Acessando o link: ${url}`);
                                                             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
                                                             await page.waitForSelector('.videoBox', { timeout: 25000 }); // Aumentar o tempo de espera
-                                                
+
                                                             await wait(20000); // Adicione um atraso adicional se necessário
                                                             const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                                             
                                                             const temporada = 1;
                                                             console.log(`Temporada definida: ${temporada}`);
-                                        
+
                                                             // Busca a descrição do episódio
                                                             const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
                                                             let descricao = null;
@@ -2873,7 +2872,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                                 console.log('Nenhuma descrição encontrada para este episódio.');
                                                                 continue; // Pular este episódio e passar para o próximo
                                                             }
-                                        
+
                                                             let nomeAnime;
                                                             if (descricao.includes(' - ')) {
                                                                 nomeAnime = descricao.split(' - ')[0].trim(); // Se houver hífen simples
@@ -2882,7 +2881,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             } else {
                                                                 nomeAnime = descricao.split(' Episódio')[0].trim();
                                                             }
-                                        
+
                                                             const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
                                                             let episodio = 1;
                                                             if (episodioMatch) {
@@ -2891,10 +2890,9 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             } else {
                                                                 console.log('Número do episódio não encontrado.');
                                                             }
-                                        
+
                                                             let linksEncontrados = [];
 
-                                                            // Regex para verificar links de diferentes domínios
                                                             // Regex para verificar links de diferentes domínios
                                                             const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g); // Note o 'g' para múltiplos
                                                             const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
@@ -2919,7 +2917,6 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                                 linksEncontrados.push(...aniplayMatches);
                                                             }
 
-                                        
                                                             // Verificar se links foram encontrados
                                                             if (linksEncontrados.length === 0) {
                                                                 attempts++; // Incrementar tentativas
@@ -2928,19 +2925,19 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             } else {
                                                                 console.log(`Links encontrados: ${linksEncontrados}`);
                                                             }
-                                        
+
                                                         } catch (error) {
                                                             console.error(`Erro ao processar o episódio ${url}: ${error.message}`);
                                                             break; // Sair do loop em caso de erro
                                                         }
                                                     }
-                                        
+
                                                     if (linksEncontrados.length === 0) {
                                                         console.log(`Falha ao encontrar links após ${maxAttempts} tentativas para o episódio: ${url}`);
                                                         await page.close(); // Fechar a aba após as tentativas
                                                         return; // Passar para o próximo episódio
                                                     }
-                                        
+
                                                     const episodioData = {
                                                         nomeAnime,
                                                         temporada,
@@ -2951,9 +2948,9 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                         link_extra_2: linksEncontrados[2] || null,
                                                         link_extra_3: null
                                                     };
-                                        
+
                                                     console.log(JSON.stringify(episodioData, null, 4));
-                                        
+
                                                     try {
                                                         const response = await fetch(`${vpsUrl}/adicionarEpisodio`, {
                                                             method: 'POST',
@@ -2962,7 +2959,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             },
                                                             body: JSON.stringify(episodioData)
                                                         });
-                                        
+
                                                         const responseData = await response.json();
                                                         console.log(`Episódio adicionado com sucesso: ${JSON.stringify(responseData)}`);
                                                         await wait(2000);
@@ -2972,14 +2969,15 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                         await page.close(); // Fechar a aba após o processamento
                                                     }
                                                 });
-                                        
+
                                                 // Aguardar todas as promessas do lote serem resolvidas
                                                 await Promise.all(promises);
-                                        
-                                                // Aguardar um tempo antes de processar o próximo lote de 5 episódios
+
+                                                // Aguardar um tempo antes de processar o próximo lote de 25 episódios
                                                 await wait(5000);
                                             }
                                         }
+
                                         
                                         await processEpisodesInOrder(episodeLinks, vpsUrl);
                                         
