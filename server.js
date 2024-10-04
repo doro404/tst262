@@ -2625,6 +2625,10 @@ app.post('/adicionarEpisodio', (req, res) => {
     });
 });
 
+
+
+
+
 app.get('/buscarEpisodios', async (req, res) => {
     const resultados = [];
 
@@ -2683,251 +2687,325 @@ app.get('/buscarEpisodios', async (req, res) => {
             };
             // Verifica o site e faz a coleta de dados correspondente
             switch (site.url) {
-                case 'https://animeq.blog/':
- 
 
-                   await page.goto(site.url, { waitUntil: 'networkidle0', timeout: 60000 }); // Aumentando para 60 segundos
+                case 'https://animeq.blog/':
+                    await page.goto(site.url, { waitUntil: 'networkidle0', timeout: 60000 }); // Aumentando para 60 segundos
 
                     // Espera até que o elemento com a classe .ContainerEps.mwidth apareça
                     await page.waitForSelector('.ContainerEps.mwidth', { timeout: 10000 }); // Espera até 10 segundos
-    
+
                     // Lógica para extrair dados do site
-                    episodios = await page.evaluate(() => {
+                    const episodios = await page.evaluate(() => {
                         return Array.from(document.querySelectorAll('article.EpsItem')).map(episodio => ({
                             titulo: episodio.querySelector('.EpsItemTitulo').innerText,
                             link: episodio.querySelector('a').href,
                         }));
                     });
-    
+
                     // Exibir os links no console
                     const links = episodios.map(episodio => episodio.link);
                     console.log('Links dos episódios:', links);
                     links.forEach(link => allowJsLinks.add(link));
-            
+
                     const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-   
+
                     for (const link of links) {
                         console.log(`Acessando o link: ${link}`);
-                        await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 60000 }); // Usando 'domcontentloaded' e timeout de 60s
-                        await page.waitForSelector('.videoBox', { timeout: 10000 }); // Espera pela div específica
-                        await wait(5000); // Espera mais 5 segundos
-
-                        // Captura o HTML completo do documento
-                        const htmlContent = await page.evaluate(() => {
-                            return document.documentElement.innerHTML; // Retorna o HTML completo do documento
-                        });
-
-                        // Define a temporada como 1 por padrão
+                        await page.goto(link, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                        await page.waitForSelector('.videoBox', { timeout: 10000 });
+                        await wait(5000);
+                    
+                        const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
+                    
                         const temporada = 1;
-                        console.log(`Temporada definida: ${temporada}`); // Log da temporada definida
-
+                        console.log(`Temporada definida: ${temporada}`);
+                    
                         // Busca a descrição do episódio
                         const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
+                        let descricao = null;
                         if (descricaoMatch) {
-                            const descricao = descricaoMatch[1]; // Captura o texto da descrição
-                            console.log(`Descrição do episódio: ${descricao}`); // Log da descrição encontrada
-                            
-                            // Extrai o nome do anime antes da palavra "Episódio"
-                            const nomeAnime = descricao.split(' Episódio')[0].trim(); // Captura o nome antes de "Episódio"
-                            console.log(`Nome do anime: ${nomeAnime}`); // Log do nome do anime
+                            descricao = descricaoMatch[1];
+                            console.log(`Descrição do episódio: ${descricao}`);
+                        } else {
+                            console.log('Nenhuma descrição encontrada para este episódio.');
+                            continue; 
+                        }
+                        if (descricao.includes(' - ')) {
+                            nomeAnime = descricao.split(' - ')[0].trim(); // Se houver hífen simples
+                        } else if (descricao.includes(' – ')) {
+                            nomeAnime = descricao.split(' – ')[0].trim(); // Se houver o símbolo '–'
+                        } else {
+                            // Caso contrário, divide pelo texto "Episódio"
+                            nomeAnime = descricao.split(' Episódio')[0].trim(); 
+                        }
+                        
+                        console.log(`Nome do anime: ${nomeAnime}`);
+                    
+                        const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
+                        let episodio = 1;
+                        if (episodioMatch) {
+                            episodio = parseInt(episodioMatch[1], 10);
+                            console.log(`Número do episódio: ${episodio}`);
+                        } else {
+                            console.log('Número do episódio não encontrado.');
+                        }
+                    
+                        let linksEncontrados = [];
 
-                            // Extrai o número do episódio
-                            const episodioMatch = descricao.match(/Episódio\s+(\d+)/); // Captura o número do episódio
-                            let episodio = 1; // Inicializa com 1 por padrão
-                            if (episodioMatch) {
-                                episodio = parseInt(episodioMatch[1], 10); // Converte para um número inteiro
-                                console.log(`Número do episódio: ${episodio}`); // Log do número do episódio
-                            } else {
-                                console.log('Número do episódio não encontrado.'); // Log se não encontrar número
-                            }
+                        // Regex para verificar links de diferentes domínios
+                       // Regex para verificar links de diferentes domínios
+                        const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g); // Note o 'g' para múltiplos
+                        const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
+                        const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
+                        const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/dl\/download\/[^"]*\.mp4/g); // Adicionando domínio cld.pt
+                        const aniplayMatches = htmlContent.match(/https:\/\/aniplay\.online\/[^"]*\.mp4/g); // Adicionando domínio aniplay.online
 
-                            // Busca o link do Blogger no HTML capturado
-                            const bloggerLinkMatch = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/);
-                            let bloggerLink = null; // Inicializa o link do Blogger como nulo
-                            if (bloggerLinkMatch) {
-                                bloggerLink = bloggerLinkMatch[0].replace(/\\|"/g, ''); // Limpa o link
-                                console.log(`Link do Blogger encontrado: ${bloggerLink}`); // Log do link do Blogger encontrado
-                            } else {
-                                console.log('Nenhum link do Blogger encontrado neste episódio.'); // Log se não encontrar nenhum link
-                            }
+                        // Adicione os links encontrados aos arrays (até 3 links no total)
+                        if (bloggerLinkMatches) {
+                            linksEncontrados.push(...bloggerLinkMatches.map(link => link.replace(/\\|"/g, '')));
+                        }
+                        if (mangasCloudMatches) {
+                            linksEncontrados.push(...mangasCloudMatches);
+                        }
+                        if (animeflixMatches) {
+                            linksEncontrados.push(...animeflixMatches);
+                        }
+                        if (cldPtMatches) {
+                            linksEncontrados.push(...cldPtMatches);
+                        }
+                        if (aniplayMatches) {
+                            linksEncontrados.push(...aniplayMatches);
+                        }
 
-                            // Cria o objeto com os dados do episódio
-                            const episodioData = {
-                                nomeAnime: nomeAnime,
-                                temporada: temporada,
-                                episodio: episodio,
-                                descricao: descricao,
-                                link: bloggerLink || 'Link não encontrado',
-                                link_extra_1: null, // Definido como null
-                                link_extra_2: null, // Definido como null
-                                link_extra_3: null  // Definido como null
-                            };
 
-                            // Loga o objeto em formato JSON
-                            console.log(JSON.stringify(episodioData, null, 4)); // Log formatado
+                        // Limite os links encontrados a 3 (caso tenha mais de 3)
+                        linksEncontrados = linksEncontrados.slice(0, 3);
+                        console.log(linksEncontrados)
 
-                            // Envia os dados do episódio para a API
-                            try {
-                                console.log(vpsUrl);
-                            
-                                try {
-                                    const response = await axios.post(`${vpsUrl}/adicionarEpisodio`, episodioData);
-                                    console.log('Resposta do servidor:', response);
-                                } catch (error) {
-                                    console.error('Erro ao enviar dados para a rota:', error);
-                                }
-                                // Verifica a resposta da API
-                                if (response.data.message === "O número do episódio deve ser o próximo na sequência ou o primeiro.") {
+                        // Atribua os links aos campos correspondentes
+                        const episodioData = {
+                            nomeAnime,
+                            temporada,
+                            episodio,
+                            descricao,
+                            link: linksEncontrados[0] || 'Link não encontrado',
+                            link_extra_1: linksEncontrados[1] || null,
+                            link_extra_2: linksEncontrados[2] || null,
+                            link_extra_3: null  // No caso de ter apenas até 3 links, link_extra_3 ficará vazio
+                        };
+                    
+                        console.log(JSON.stringify(episodioData, null, 4));
+                    
+                        // Envia os dados do episódio para a API
+                        try {
+                            const response = await fetch(`${vpsUrl}/adicionarEpisodio`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(episodioData)
+                            });
+                    
+                            if (!response.ok) {
+                                const errorData = await response.json();
+                                console.error(`Erro na requisição: ${errorData.message || response.statusText}`);
+                    
+                                if (errorData.message === "O número do episódio deve ser o próximo na sequência ou o primeiro.") {
+
                                     console.log("Ação alternativa: O número do episódio está fora de sequência.");
-                                    console.log("Tentando adicionar novamente com o número correto.");
-                            
-                                    // Pega o href do elemento com a classe ControlesEPItem
-                                   // Pega o href do elemento com a classe ControlesEPItem
-                                    const controlesEPItem = document.querySelector('.ControlesEPItem a');
-                                    if (controlesEPItem) {
-                                        const episodeLink = controlesEPItem.getAttribute('href');
-                                        console.log(`Navegando para a página: ${episodeLink}`);
+                                    await page.waitForSelector('.ControlesEP #center');
+                                    const episodeLink = await page.evaluate(() => {
+                                        const centerElement = document.querySelector('.ControlesEP #center a');
+                                        return centerElement ? centerElement.href : null;
+                                    });
 
-                                        // Redirecionar para a nova página
-                                        window.location.href = episodeLink; // Redireciona o usuário para a página
-                                        await wait(5000); // Espera mais 5 segundos
-                                        // Em uma nova página, você precisa adicionar o código de espera lá
-                                        // Aqui, você pode usar o evento 'DOMContentLoaded'
-                                        window.addEventListener('DOMContentLoaded', () => {
-                                            // Espera até que o elemento desejado esteja presente
-                                            const waitForElement = () => {
-                                                const listaContainer = document.querySelector('.ListaContainer');
-                                                if (listaContainer) {
-                                                    console.log('Elemento .ListaContainer encontrado.');
-                                                    // Continue com sua lógica aqui
-                                                } else {
-                                                    console.log('Aguardando o elemento .ListaContainer...');
-                                                    setTimeout(waitForElement, 1000); // Tenta novamente após 1 segundo
-                                                }
-                                            };
+                                    if (episodeLink) {
+                                    console.log("Extracted episode link:", episodeLink);
+                                
+                                    // Navigate to the episode page
+                                    await page.goto(episodeLink);
+                                    
+                                        await wait(5000);
+                                        await page.waitForSelector('.ListaContainer', { timeout: 10000 });
+                                        const episodeLinks = await page.evaluate(() => {
+                                            const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
+                                            return episodeElements.map(element => element.href);
+                                        }); 
+                                        const BATCH_SIZE = 25; // Número de abas abertas simultaneamente
 
-                                            waitForElement(); // Inicia a espera
-                                        });
-                                        // Primeiro, pegamos todos os links de episódios
-                                        const episodeLinks = Array.from(document.querySelectorAll('#lAnimes a'))
-                                            .map(link => link.getAttribute('href'))
-                                            .sort(); // Ordena os links em ordem crescente
-
-                                        console.log('Links dos episódios:', episodeLinks);
-
-                                        // Função para navegar e realizar uma ação em cada episódio
-                                        const navigateAndPerformAction = async (links) => {
-                                            const browser = await puppeteer.launch(); // Lança o navegador
-                                            const page = await browser.newPage(); // Abre uma nova página
+                                        async function processEpisodesInOrder(episodeLinks, vpsUrl) {
+                                            // Iterar sobre os links em lotes de 5
+                                            for (let i = 0; i < episodeLinks.length; i += BATCH_SIZE) {
+                                                const batch = episodeLinks.slice(i, i + BATCH_SIZE);
+                                                
+                                                // Criar uma matriz de promessas para processar os episódios em paralelo
+                                                const promises = batch.map(async (url) => {
+                                                    const page = await browser.newPage(); // Abrir uma nova aba para cada episódio
+                                                    let attempts = 0; // Contador de tentativas
+                                                    let linksEncontrados = [];
+                                                    const maxAttempts = 3; // Número máximo de tentativas
                                         
-                                            for (const episodeLink of links) {
-                                                console.log(`Navegando para a página: ${episodeLink}`);
-                                                await page.goto(episodeLink, { waitUntil: 'domcontentloaded', timeout: 60000 }); // Usando 'domcontentloaded' e timeout de 60s
+                                                    while (attempts < maxAttempts && linksEncontrados.length === 0) {
+                                                        try {
+                                                            console.log("Processing episode:", url);
+                                                            console.log(`Acessando o link: ${url}`);
+                                                            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                                                            await page.waitForSelector('.videoBox', { timeout: 10000 });
+                                                            await wait(5000);
                                         
-                                                await page.waitForSelector('.videoBox', { timeout: 10000 }); // Espera pela div específica
-                                                await wait(5000); // Espera mais 5 segundos
+                                                            const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                         
-                                                // Captura o HTML completo do documento
-                                                const htmlContent = await page.evaluate(() => {
-                                                    return document.documentElement.innerHTML; // Retorna o HTML completo do documento
-                                                });
+                                                            const temporada = 1;
+                                                            console.log(`Temporada definida: ${temporada}`);
                                         
-                                                // Define a temporada como 1 por padrão
-                                                const temporada = 1;
-                                                console.log(`Temporada definida: ${temporada}`); // Log da temporada definida
+                                                            // Busca a descrição do episódio
+                                                            const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
+                                                            let descricao = null;
+                                                            if (descricaoMatch) {
+                                                                descricao = descricaoMatch[1];
+                                                                console.log(`Descrição do episódio: ${descricao}`);
+                                                            } else {
+                                                                console.log('Nenhuma descrição encontrada para este episódio.');
+                                                                continue; // Pular este episódio e passar para o próximo
+                                                            }
                                         
-                                                // Busca a descrição do episódio
-                                                const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
-                                                if (descricaoMatch) {
-                                                    const descricao = descricaoMatch[1]; // Captura o texto da descrição
-                                                    console.log(`Descrição do episódio: ${descricao}`); // Log da descrição encontrada
-                                                    
-                                                    // Extrai o nome do anime antes da palavra "Episódio"
-                                                    const nomeAnime = descricao.split(' Episódio')[0].trim(); // Captura o nome antes de "Episódio"
-                                                    console.log(`Nome do anime: ${nomeAnime}`); // Log do nome do anime
+                                                            let nomeAnime;
+                                                            if (descricao.includes(' - ')) {
+                                                                nomeAnime = descricao.split(' - ')[0].trim(); // Se houver hífen simples
+                                                            } else if (descricao.includes(' – ')) {
+                                                                nomeAnime = descricao.split(' – ')[0].trim(); // Se houver o símbolo '–'
+                                                            } else {
+                                                                nomeAnime = descricao.split(' Episódio')[0].trim();
+                                                            }
                                         
-                                                    // Extrai o número do episódio
-                                                    const episodioMatch = descricao.match(/Episódio\s+(\d+)/); // Captura o número do episódio
-                                                    let episodio = 1; // Inicializa com 1 por padrão
-                                                    if (episodioMatch) {
-                                                        episodio = parseInt(episodioMatch[1], 10); // Converte para um número inteiro
-                                                        console.log(`Número do episódio: ${episodio}`); // Log do número do episódio
-                                                    } else {
-                                                        console.log('Número do episódio não encontrado.'); // Log se não encontrar número
+                                                            const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
+                                                            let episodio = 1;
+                                                            if (episodioMatch) {
+                                                                episodio = parseInt(episodioMatch[1], 10);
+                                                                console.log(`Número do episódio: ${episodio}`);
+                                                            } else {
+                                                                console.log('Número do episódio não encontrado.');
+                                                            }
+                                        
+                                                            // Regex para verificar links de diferentes domínios
+                                                            const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g);
+                                                            const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
+                                                            const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
+                                                            const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/dl\/download\/[^"]*\.mp4/g);
+                                                            const aniplayMatches = htmlContent.match(/https:\/\/aniplay\.online\/[^"]*\.mp4/g);
+                                        
+                                                            if (bloggerLinkMatches) {
+                                                                linksEncontrados.push(...bloggerLinkMatches.map(link => link.replace(/\\|"/g, '')));
+                                                            }
+                                                            if (mangasCloudMatches) {
+                                                                linksEncontrados.push(...mangasCloudMatches);
+                                                            }
+                                                            if (animeflixMatches) {
+                                                                linksEncontrados.push(...animeflixMatches);
+                                                            }
+                                                            if (cldPtMatches) {
+                                                                linksEncontrados.push(...cldPtMatches);
+                                                            }
+                                                            if (aniplayMatches) {
+                                                                linksEncontrados.push(...aniplayMatches);
+                                                            }
+                                        
+                                                            // Verificar se links foram encontrados
+                                                            if (linksEncontrados.length === 0) {
+                                                                attempts++; // Incrementar tentativas
+                                                                console.log(`Nenhum link encontrado. Tentativa ${attempts} de ${maxAttempts}.`);
+                                                                await wait(3000); // Esperar um pouco antes de tentar novamente
+                                                            } else {
+                                                                console.log(`Links encontrados: ${linksEncontrados}`);
+                                                            }
+                                        
+                                                        } catch (error) {
+                                                            console.error(`Erro ao processar o episódio ${url}: ${error.message}`);
+                                                            break; // Sair do loop em caso de erro
+                                                        }
                                                     }
                                         
-                                                    // Busca o link do Blogger no HTML capturado
-                                                    const bloggerLinkMatch = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/);
-                                                    let bloggerLink = null; // Inicializa o link do Blogger como nulo
-                                                    if (bloggerLinkMatch) {
-                                                        bloggerLink = bloggerLinkMatch[0].replace(/\\|"/g, ''); // Limpa o link
-                                                        console.log(`Link do Blogger encontrado: ${bloggerLink}`); // Log do link do Blogger encontrado
-                                                    } else {
-                                                        console.log('Nenhum link do Blogger encontrado neste episódio.'); // Log se não encontrar nenhum link
+                                                    if (linksEncontrados.length === 0) {
+                                                        console.log(`Falha ao encontrar links após ${maxAttempts} tentativas para o episódio: ${url}`);
+                                                        await page.close(); // Fechar a aba após as tentativas
+                                                        return; // Passar para o próximo episódio
                                                     }
                                         
-                                                    // Cria o objeto com os dados do episódio
                                                     const episodioData = {
-                                                        nomeAnime: nomeAnime,
-                                                        temporada: temporada,
-                                                        episodio: episodio,
-                                                        descricao: descricao,
-                                                        link: bloggerLink || 'Link não encontrado',
-                                                        link_extra_1: null, // Definido como null
-                                                        link_extra_2: null, // Definido como null
-                                                        link_extra_3: null  // Definido como null
+                                                        nomeAnime,
+                                                        temporada,
+                                                        episodio,
+                                                        descricao,
+                                                        link: linksEncontrados[0] || 'Link não encontrado',
+                                                        link_extra_1: linksEncontrados[1] || null,
+                                                        link_extra_2: linksEncontrados[2] || null,
+                                                        link_extra_3: null
                                                     };
                                         
-                                                    // Loga o objeto em formato JSON
-                                                    console.log(JSON.stringify(episodioData, null, 4)); // Log formatado
-                                                    
-                                                    // Envio dos dados para a rota
+                                                    console.log(JSON.stringify(episodioData, null, 4));
+                                        
                                                     try {
-                                                        
-                                                        const response = await axios.post(`${vpsUrl}/adicionarEpisodio`, episodioData);
+                                                        const response = await fetch(`${vpsUrl}/adicionarEpisodio`, {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Content-Type': 'application/json'
+                                                            },
+                                                            body: JSON.stringify(episodioData)
+                                                        });
                                         
-                                                        console.log('Resposta do servidor:', response);
+                                                        const responseData = await response.json();
+                                                        console.log(`Episódio adicionado com sucesso: ${JSON.stringify(responseData)}`);
+                                                        await wait(2000);
                                                     } catch (error) {
-                                                        console.error('Erro ao enviar dados para a rota:', error);
+                                                        console.error(`Erro ao adicionar episódio: ${error.message}`);
+                                                    } finally {
+                                                        await page.close(); // Fechar a aba após o processamento
                                                     }
-                                                } else {
-                                                    console.log('Descrição não encontrada para o episódio.');
-                                                }
+                                                });
                                         
-                                                // Opcional: adicionar um tempo de espera entre as navegações
-                                                await wait(2000); // 2 segundos de espera
+                                                // Aguardar todas as promessas do lote serem resolvidas
+                                                await Promise.all(promises);
+                                        
+                                                // Aguardar um tempo antes de processar o próximo lote de 5 episódios
+                                                await wait(5000);
                                             }
+                                        }
                                         
-                                            await browser.close(); // Fecha o navegador após terminar
-                                        };
-
-                                        // Chama a função passando os links dos episódios
-                                        navigateAndPerformAction(episodeLinks);
-
+                                        await processEpisodesInOrder(episodeLinks, vpsUrl);
+                                        
+                                        
+                                        console.log("Extracted episode URLs:", episodeLinks);
+                                        await wait(5000);
                                     } else {
-                                        console.log('Elemento de controle do episódio não encontrado.');
+                                       console.error("Episode link not found.");
                                     }
-
+        
                                 } else {
-                                    console.log(`Episódio adicionado com sucesso: ${JSON.stringify(response.data)}`);
+                                    throw new Error(`Erro na resposta: ${response.status} ${errorData.message || response.statusText}`);
                                 }
-                            
-                                // Aguardar 2 segundos (2000 ms) entre as solicitações
-                                await wait(2000); // Ajuste o tempo de espera conforme necessário
-                            } catch (error) {
-                                console.error(`Erro ao adicionar episódio: ${error.message}`);
+                                continue; 
                             }
-                            
-                            
-                        } else {
-                            console.log('Nenhuma descrição encontrada para este episódio.'); // Log se não encontrar nenhuma descrição
+                    
+                            const responseData = await response.json();
+                            console.log(`Episódio adicionado com sucesso: ${JSON.stringify(responseData)}`);
+                            await wait(2000);
+                        } catch (error) {
+                            console.error(`Erro ao adicionar episódio: ${error.message}`);
                         }
                     }
-
-
+  
                     
-                         
+                    
+                    // Função para esperar até que o elemento desejado esteja presente
+                
+
+                        
+                        
+                                   
+
                     break;
+
+               
 
                 case 'http://site2.com':
                     await page.goto(site.url);
