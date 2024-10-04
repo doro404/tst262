@@ -2628,10 +2628,10 @@ app.get('/buscarEpisodios', async (req, res) => {
 
     // Inicializa o Puppeteer
     const browser = await puppeteer.launch({
-        executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-        headless: false
+        executablePath: '/usr/bin/google-chrome',
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-
     const sites = [
         { url: 'https://animeq.blog/' }
         // Adicione mais sites conforme necessário
