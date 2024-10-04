@@ -2632,7 +2632,6 @@ app.get('/buscarEpisodios', async (req, res) => {
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/google-chrome',
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     const sites = [
         { url: 'https://animeq.blog/' }
