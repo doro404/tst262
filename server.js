@@ -2632,7 +2632,13 @@ app.get('/buscarEpisodios', async (req, res) => {
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/google-chrome',
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-web-security', // Adiciona essa linha
+            '--disable-features=IsolateOrigins,site-per-process', // Adiciona essa linha
+            '--enable-features=NetworkService,NetworkServiceInProcess' // Adiciona essa linha
+        ]
     });
     const sites = [
         { url: 'https://animeq.blog/' }
@@ -2850,7 +2856,23 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             await page.waitForSelector('.videoBox', { timeout: 25000 }); // Aumentar o tempo de espera
                                                 
                                                             await wait(20000); // Adicione um atraso adicional se necessário
-                                        
+
+                                                            const linksParaVerificar = ['#b3', '#b14', '#b17'];
+
+                                                            // Itera sobre cada link para verificar se existe e clicar
+                                                            for (const link of linksParaVerificar) {
+                                                                const selector = `#RiverLabAbas a[href="${link}"]`; // Seletor para o link
+                                                                const exists = await page.$(selector); // Verifica se o link existe
+                                                        
+                                                                if (exists) {
+                                                                    console.log(`Link ${link} encontrado. Clicando...`);
+                                                                    await page.click(selector); // Clica no link se existir
+                                                                    await page.waitForTimeout(1000); // Espera um pouco após o clique (ajuste conforme necessário)
+                                                                } else {
+                                                                    console.log(`Link ${link} não encontrado.`);
+                                                                }
+                                                            }
+                                                            await wait(5000); // Adicione um atraso adicional se necessário
                                                             const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                                             
                                                             console.log(htmlContent);
