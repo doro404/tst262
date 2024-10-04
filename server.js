@@ -2829,7 +2829,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                             const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
                                             return episodeElements.map(element => element.href);
                                         }); 
-                                        const BATCH_SIZE = 25; // Número de abas abertas simultaneamente
+                                        const BATCH_SIZE = 7; // Número de abas abertas simultaneamente
 
                                         async function processEpisodesInOrder(episodeLinks, vpsUrl) {
                                             // Iterar sobre os links em lotes de 5
