@@ -2649,6 +2649,8 @@ app.get('/buscarEpisodios', async (req, res) => {
         try {
             let episodios = [];
             const page = await browser.newPage();
+            const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36';
+            await page.setUserAgent(userAgent);
             let bloggerLink = null; // Declare a variável aqui
             await page.setRequestInterception(true);
 
