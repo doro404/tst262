@@ -2835,7 +2835,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                             const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
                                             return episodeElements.map(element => element.href);
                                         }); 
-                                        const BATCH_SIZE = 5; // Número de abas abertas simultaneamente
+                                        const BATCH_SIZE = 25; // Número de abas abertas simultaneamente
 
                                         async function processEpisodesInOrder(episodeLinks, vpsUrl) {
                                             // Iterar sobre os links em lotes de 5
@@ -2858,23 +2858,6 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             await page.waitForSelector('.videoBox', { timeout: 25000 }); // Aumentar o tempo de espera
                                                 
                                                             await wait(20000); // Adicione um atraso adicional se necessário
-
-                                                            const linksParaVerificar = ['#b3', '#b14', '#b17'];
-
-                                                            // Itera sobre cada link para verificar se existe e clicar
-                                                            for (const link of linksParaVerificar) {
-                                                                const selector = `#RiverLabAbas a[href="${link}"]`; // Seletor para o link
-                                                                const exists = await page.$(selector); // Verifica se o link existe
-                                                        
-                                                                if (exists) {
-                                                                    console.log(`Link ${link} encontrado. Clicando...`);
-                                                                    await page.click(selector); // Clica no link se existir
-                                                                    await page.waitForTimeout(1000); // Espera um pouco após o clique (ajuste conforme necessário)
-                                                                } else {
-                                                                    console.log(`Link ${link} não encontrado.`);
-                                                                }
-                                                            }
-                                                            await wait(5000); // Adicione um atraso adicional se necessário
                                                             const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                                             
                                                             console.log(htmlContent);
