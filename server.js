@@ -2821,103 +2821,96 @@ app.get('/buscarEpisodios', async (req, res) => {
                                     // Navigate to the episode page
                                     await page.goto(episodeLink);
                                     
-                                    await wait(5000);
-                                    await page.waitForSelector('.ListaContainer', { timeout: 10000 });
-                                    const episodeLinks = await page.evaluate(() => {
-                                        const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
-                                        return episodeElements.map(element => element.href);
-                                    }); 
-                                        const BATCH_SIZE = 5; // Número de abas abertas simultaneamente
+                                        await wait(5000);
+                                        await page.waitForSelector('.ListaContainer', { timeout: 10000 });
+                                        const episodeLinks = await page.evaluate(() => {
+                                            const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
+                                            return episodeElements.map(element => element.href);
+                                        }); 
+
 
                                         async function processEpisodesInOrder(episodeLinks, vpsUrl) {
-                                            for (const url of episodeLinks) {
-                                                const page = await browser.newPage(); // Abrir uma nova aba para cada episódio
-                                                let linksEncontrados = [];
+                                            const BATCH_SIZE = 5; // You can define this as needed
                                         
-                                                try {
-                                                    console.log("Processing episode:", url);
-                                                    console.log(`Acessando o link: ${url}`);
-                                                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
-                                                    await page.waitForSelector('.videoBox', { timeout: 10000 });
-                                                    await wait(10000);
+                                            // Iterate over the links in batches
+                                            for (let i = 0; i < episodeLinks.length; i += BATCH_SIZE) {
+                                                const batch = episodeLinks.slice(i, i + BATCH_SIZE);
                                         
-                                                    const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
-                                                    const temporada = 1;
-                                                    console.log(`Temporada definida: ${temporada}`);
+                                                // Create an array of promises to process episodes in parallel
+                                                const promises = batch.map(async (url) => {
+                                                    const page = await browser.newPage(); // Open a new tab for each episode
+                                                    let attempts = 0; // Attempt counter
+                                                    let linksEncontrados = [];
+                                                    const maxAttempts = 3; // Maximum attempts
                                         
-                                                    // Busca a descrição do episódio
-                                                    const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
-                                                    let descricao = null;
-                                                    if (descricaoMatch) {
-                                                        descricao = descricaoMatch[1];
-                                                        console.log(`Descrição do episódio: ${descricao}`);
-                                                    } else {
-                                                        console.log('Nenhuma descrição encontrada para este episódio.');
-                                                        await page.close();
-                                                        continue; // Pular este episódio e passar para o próximo
+                                                    while (attempts < maxAttempts && linksEncontrados.length === 0) {
+                                                        try {
+                                                            console.log("Processing episode:", url);
+                                                            console.log(`Accessing link: ${url}`);
+                                                            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                                                            await page.waitForSelector('.videoBox', { timeout: 10000 });
+                                                            await wait(10000); // Wait to allow content to load
+                                        
+                                                            const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
+                                        
+                                                            const temporada = 1; // Assuming season is known or extracted from the URL or context
+                                                            console.log(`Season set: ${temporada}`);
+                                        
+                                                            // Extract episode description
+                                                            const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
+                                                            if (!descricaoMatch) {
+                                                                console.log('No description found for this episode.');
+                                                                continue; // Skip to the next episode
+                                                            }
+                                        
+                                                            const descricao = descricaoMatch[1];
+                                                            console.log(`Episode description: ${descricao}`);
+                                        
+                                                            // Extract anime name and episode number
+                                                            const nomeAnime = extractAnimeName(descricao);
+                                                            const episodio = extractEpisodeNumber(descricao);
+                                                            console.log(`Anime Name: ${nomeAnime}, Episode Number: ${episodio}`);
+                                        
+                                                            // Extract video links from the HTML
+                                                            linksEncontrados = extractVideoLinks(htmlContent);
+                                        
+                                                            // Check if links were found
+                                                            if (linksEncontrados.length === 0) {
+                                                                attempts++; // Increment attempts
+                                                                console.log(`No links found. Attempt ${attempts} of ${maxAttempts}.`);
+                                                                await wait(3000); // Wait before retrying
+                                                            } else {
+                                                                console.log(`Links found: ${linksEncontrados}`);
+                                                            }
+                                        
+                                                        } catch (error) {
+                                                            console.error(`Error processing episode ${url}: ${error.message}`);
+                                                            break; // Exit the loop in case of error
+                                                        }
                                                     }
                                         
-                                                    let nomeAnime;
-                                                    if (descricao.includes(' - ')) {
-                                                        nomeAnime = descricao.split(' - ')[0].trim(); // Se houver hífen simples
-                                                    } else if (descricao.includes(' – ')) {
-                                                        nomeAnime = descricao.split(' – ')[0].trim(); // Se houver o símbolo '–'
-                                                    } else {
-                                                        nomeAnime = descricao.split(' Episódio')[0].trim();
-                                                    }
-                                        
-                                                    const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
-                                                    let episodio = 1;
-                                                    if (episodioMatch) {
-                                                        episodio = parseInt(episodioMatch[1], 10);
-                                                        console.log(`Número do episódio: ${episodio}`);
-                                                    } else {
-                                                        console.log('Número do episódio não encontrado.');
-                                                    }
-                                        
-                                                    // Regex para verificar links de diferentes domínios
-                                                    const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g);
-                                                    const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
-                                                    const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
-                                                    const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/dl\/download\/[^"]*\.mp4/g);
-                                                    const aniplayMatches = htmlContent.match(/https:\/\/aniplay\.online\/[^"]*\.mp4/g);
-                                        
-                                                    if (bloggerLinkMatches) {
-                                                        linksEncontrados.push(...bloggerLinkMatches.map(link => link.replace(/\\|"/g, '')));
-                                                    }
-                                                    if (mangasCloudMatches) {
-                                                        linksEncontrados.push(...mangasCloudMatches);
-                                                    }
-                                                    if (animeflixMatches) {
-                                                        linksEncontrados.push(...animeflixMatches);
-                                                    }
-                                                    if (cldPtMatches) {
-                                                        linksEncontrados.push(...cldPtMatches);
-                                                    }
-                                                    if (aniplayMatches) {
-                                                        linksEncontrados.push(...aniplayMatches);
-                                                    }
-                                        
-                                                    // Verificar se links foram encontrados
+                                                    // If no links were found after max attempts
                                                     if (linksEncontrados.length === 0) {
-                                                        console.log(`Nenhum link encontrado para o episódio: ${url}`);
-                                                        await page.close(); // Fechar a aba após as tentativas
-                                                        continue; // Passar para o próximo episódio
+                                                        console.log(`Failed to find links after ${maxAttempts} attempts for episode: ${url}`);
+                                                        await page.close(); // Close the tab after attempts
+                                                        return; // Move to the next episode
                                                     }
                                         
+                                                    // Prepare episode data for submission
                                                     const episodioData = {
                                                         nomeAnime,
                                                         temporada,
                                                         episodio,
                                                         descricao,
-                                                        link: linksEncontrados[0] || 'Link não encontrado',
+                                                        link: linksEncontrados[0] || 'Link not found',
                                                         link_extra_1: linksEncontrados[1] || null,
                                                         link_extra_2: linksEncontrados[2] || null,
-                                                        link_extra_3: null
+                                                        link_extra_3: null // Set to null if not used
                                                     };
                                         
                                                     console.log(JSON.stringify(episodioData, null, 4));
                                         
+                                                    // Submit the episode data to the server
                                                     try {
                                                         const response = await fetch(`${vpsUrl}/adicionarEpisodio`, {
                                                             method: 'POST',
@@ -2928,21 +2921,71 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                         });
                                         
                                                         const responseData = await response.json();
-                                                        console.log(`Episódio adicionado com sucesso: ${JSON.stringify(responseData)}`);
-                                                        await wait(2000);
+                                                        console.log(`Episode successfully added: ${JSON.stringify(responseData)}`);
+                                                        await wait(2000); // Wait between submissions
                                                     } catch (error) {
-                                                        console.error(`Erro ao adicionar episódio: ${error.message}`);
+                                                        console.error(`Error adding episode: ${error.message}`);
                                                     } finally {
-                                                        await page.close(); // Fechar a aba após o processamento
+                                                        await page.close(); // Close the tab after processing
                                                     }
-                                                } catch (error) {
-                                                    console.error(`Erro ao processar o episódio ${url}: ${error.message}`);
-                                                    await page.close(); // Fechar a aba em caso de erro
-                                                }
+                                                });
+                                        
+                                                // Wait for all promises in the batch to resolve
+                                                await Promise.all(promises);
+                                        
+                                                // Wait before processing the next batch
+                                                await wait(5000);
                                             }
                                         }
                                         
+                                        // Helper functions to extract anime name and episode number
+                                        function extractAnimeName(descricao) {
+                                            if (descricao.includes(' - ')) {
+                                                return descricao.split(' - ')[0].trim();
+                                            } else if (descricao.includes(' – ')) {
+                                                return descricao.split(' – ')[0].trim();
+                                            } else {
+                                                return descricao.split(' Episódio')[0].trim();
+                                            }
+                                        }
+                                        
+                                        function extractEpisodeNumber(descricao) {
+                                            const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
+                                            return episodioMatch ? parseInt(episodioMatch[1], 10) : 1; // Default to 1 if not found
+                                        }
+                                        
+                                        function extractVideoLinks(htmlContent) {
+                                            let linksEncontrados = [];
+                                            // Regex to find video links from different domains
+                                            const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g);
+                                            const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
+                                            const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
+                                            const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/dl\/download\/[^"]*\.mp4/g);
+                                            const aniplayMatches = htmlContent.match(/https:\/\/aniplay\.online\/[^"]*\.mp4/g);
+                                        
+                                            // Add found links to the array (up to 3 links in total)
+                                            if (bloggerLinkMatches) {
+                                                linksEncontrados.push(...bloggerLinkMatches.map(link => link.replace(/\\|"/g, '')));
+                                            }
+                                            if (mangasCloudMatches) {
+                                                linksEncontrados.push(...mangasCloudMatches);
+                                            }
+                                            if (animeflixMatches) {
+                                                linksEncontrados.push(...animeflixMatches);
+                                            }
+                                            if (cldPtMatches) {
+                                                linksEncontrados.push(...cldPtMatches);
+                                            }
+                                            if (aniplayMatches) {
+                                                linksEncontrados.push(...aniplayMatches);
+                                            }
+                                        
+                                            return linksEncontrados.slice(0, 3); // Return up to 3 links
+                                        }
+                                        
+                                        // Example usage
                                         await processEpisodesInOrder(episodeLinks, vpsUrl);
+                                        
                                         
                                         
                                         console.log("Extracted episode URLs:", episodeLinks);
