@@ -2860,7 +2860,6 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                             await wait(20000); // Adicione um atraso adicional se necessário
                                                             const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
                                                             
-                                                            console.log(htmlContent);
                                                             const temporada = 1;
                                                             console.log(`Temporada definida: ${temporada}`);
                                         
