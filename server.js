@@ -2652,67 +2652,65 @@ app.post('/adicionarEpisodio', (req, res) => {
                 
                     // Formatar a descrição para Episodios_exibir
                     const descricaoFormatada = formatEpisodeName(episodio); // Utiliza a função para formatação
-                    
-                    // Formatar o nome para a tabela episodios usando a função
                     const nomeFormatado = `${nomeAnime} – ${descricaoFormatada}`; // Ex: "One Piece – Episódio 255"
                 
-                    // Inserir o novo episódio na tabela Episodios_exibir
-                    const queryInsertEpisodiosExibir = `
-                        INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    // Verificar se há um episódio anterior para obter a capa
+                    const queryGetCapa = `
+                        SELECT capa_ep 
+                        FROM episodios 
+                        WHERE anime_id = ? 
+                        ORDER BY numero DESC 
+                        LIMIT 1
                     `;
                 
-                    db.run(queryInsertEpisodiosExibir, [anime.Anime_id, temporada, episodio, nomeFormatado, link, link_extra_1, link_extra_2, link_extra_3], function (err) {
+                    db.get(queryGetCapa, [anime.Anime_id], (err, resultado) => {
                         if (err) {
-                            return res.status(500).json({ message: 'Erro ao inserir o episódio.', error: err.message });
+                            return res.status(500).json({ message: 'Erro ao consultar o banco de dados para a capa.', error: err.message });
                         }
                 
-                        const novoEpisodioId = this.lastID;
+                        // Se não houver episódios anteriores, use uma capa padrão
+                        const linkCapa = resultado ? resultado.capa_ep : 'https://via.placeholder.com/150';
                 
-                        // Gerar o link padrão usando os dados
-                        const linkEpisodioGerado = `https://incriveiscuriosidades.online/animes/animes.html?animeId=${anime.Anime_id}&temporada=${temporada}&episodio=${episodio}`;
+                        // Adicionando logs para verificar os valores antes da inserção
+                        console.log(`Temporada: ${temporada}, Episódio: ${episodio}`);
+                        console.log(`Nome formatado: ${nomeFormatado}, Capa: ${linkCapa}`);
                 
-                        // Verificar se há um episódio anterior para obter a capa
-                        const queryGetCapa = `
-                            SELECT capa_ep 
-                            FROM episodios 
-                            WHERE anime_id = ? 
-                            ORDER BY numero DESC 
-                            LIMIT 1
+                        // Inserir o novo episódio na tabela Episodios_exibir
+                        const queryInsertEpisodiosExibir = `
+                            INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                         `;
                 
-                        db.get(queryGetCapa, [anime.Anime_id], (err, resultado) => {
+                        db.run(queryInsertEpisodiosExibir, [anime.Anime_id, temporada, episodio, nomeFormatado, link, link_extra_1, link_extra_2, link_extra_3], function (err) {
                             if (err) {
-                                return res.status(500).json({ message: 'Erro ao consultar o banco de dados para a capa.', error: err.message });
+                                return res.status(500).json({ message: 'Erro ao inserir o episódio.', error: err.message });
                             }
-                        
-                            // Se não houver episódios anteriores, use uma capa padrão
-                            const linkCapa = resultado ? resultado.capa_ep : 'https://via.placeholder.com/150';
-                        
-                            // Formatar o nome do episódio
-                            const descricaoFormatada = formatEpisodeName(descricao);
-                        
-                            // Inserir o novo episódio na tabela episodios com o link e capa gerados
+                
+                            const novoEpisodioId = this.lastID;
+                
+                            // Gerar o link padrão usando os dados
+                            const linkEpisodioGerado = `https://incriveiscuriosidades.online/animes/animes.html?animeId=${anime.Anime_id}&temporada=${temporada}&episodio=${episodio}`;
+                
+                            // Inserir o novo episódio na tabela episodios
                             const queryInsertEpisodios = `
                                 INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id, alertanovoep)
                                 VALUES (?, ?, ?, ?, ?, ?, ?)
                             `;
-                        
+                
                             db.run(queryInsertEpisodios, [temporada, episodio, descricaoFormatada, linkEpisodioGerado, linkCapa, anime.Anime_id, 1], function (err) {
                                 if (err) {
                                     return res.status(500).json({ message: 'Erro ao inserir o episódio na tabela episodios.', error: err.message });
                                 }
-                        
-                                // Retorna sucesso com o ID do episódio recém-criado nas duas tabelas
+                
+                                // Retorna sucesso com o ID do episódio recém-criado
                                 return res.status(201).json({
                                     message: 'Episódio adicionado com sucesso!',
-                                    episodioId: novoEpisodioId,
+                                    episodioId: this.lastID,
                                     animeTitulo: nomeAnime,
                                     animeId: anime.Anime_id
                                 });
                             });
                         });
-                        
                     });
                 } else {
                     // Retorna erro se o número do episódio não é o próximo na sequência
@@ -2722,10 +2720,12 @@ app.post('/adicionarEpisodio', (req, res) => {
                 
                 
                 
+                
             });
         });
     });
 });
+
 
 app.get('/buscarEpisodios', async (req, res) => {
     const resultados = [];
