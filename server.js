@@ -2561,6 +2561,11 @@ app.post('/adicionarEpisodio', (req, res) => {
                         FROM Animes_exibir 
                         WHERE titulo = ?
                     `;
+
+                    function formatEpisodeName(episodio) {
+                        const episodeNumber = String(parseInt(episodio, 10)).padStart(3, '0'); // Formata com zeros à esquerda
+                        return `Episódio ${episodeNumber}`; // Retorna o formato desejado
+                    }
                 
                     db.get(queryCheckAnimeExists, [nomeAnime], (err, animeExists) => {
                         if (err) {
@@ -2599,24 +2604,28 @@ app.post('/adicionarEpisodio', (req, res) => {
                                 if (err) {
                                     return res.status(500).json({ message: 'Erro ao inserir o episódio.', error: err.message });
                                 }
-                
+                            
                                 // Obter o ID do episódio recém-criado
                                 const novoEpisodioId = this.lastID;
-                
+                            
                                 // Gerar o link padrão usando os dados
                                 const linkEpisodioGerado = `https://incriveiscuriosidades.online/animes/animes.html?animeId=${anime.Anime_id}&temporada=${temporada}&episodio=${episodio}`;
-                
+
+                                const descricaoFormatadaprimary = formatEpisodeName(episodio); // Utiliza a função para formatação
+                                const nomeFormatadoprimary = `${nomeAnime} – ${descricaoFormatadaprimary}`; // Ex: "One Piece – Episódio 255"
+                            
                                 // Inserir o novo episódio na tabela episodios usando o link gerado
                                 const queryInsertEpisodio = `
-                                    INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id)
-                                    VALUES (?, ?, ?, ?, ?, ?)
+                                    INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id, alertanovoep)
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)
                                 `;
-                
-                                db.run(queryInsertEpisodio, [temporada, episodio, descricao, linkEpisodioGerado, linkCapa, anime.Anime_id], function(err) {
+                            
+                                // Defina o valor de alertanovoep como 1
+                                db.run(queryInsertEpisodio, [temporada, episodio, descricaoFormatadaprimary, linkEpisodioGerado, linkCapa, anime.Anime_id, 1], function(err) {
                                     if (err) {
                                         return res.status(500).json({ message: 'Erro ao inserir o episódio na tabela episodios.', error: err.message });
                                     }
-                
+                            
                                     // Retorna sucesso com os IDs do episódio recém-criado
                                     return res.status(201).json({ 
                                         message: 'Episódio adicionado com sucesso!', 
@@ -2626,6 +2635,7 @@ app.post('/adicionarEpisodio', (req, res) => {
                                     });
                                 });
                             });
+                            
                         });
                     });
                 }
@@ -2634,13 +2644,25 @@ app.post('/adicionarEpisodio', (req, res) => {
                 
                 // Se houver um último episódio, verifica a ordem
                 else if (lastEpisodio && lastEpisodio.episodio + 1 === episodio) {
+                    // Função para formatar o nome do episódio
+                    function formatEpisodeName(episodio) {
+                        const episodeNumber = String(parseInt(episodio, 10)).padStart(3, '0'); // Formata com zeros à esquerda
+                        return `Episódio ${episodeNumber}`; // Retorna o formato desejado
+                    }
+                
+                    // Formatar a descrição para Episodios_exibir
+                    const descricaoFormatada = formatEpisodeName(episodio); // Utiliza a função para formatação
+                    
+                    // Formatar o nome para a tabela episodios usando a função
+                    const nomeFormatado = `${nomeAnime} – ${descricaoFormatada}`; // Ex: "One Piece – Episódio 255"
+                
                     // Inserir o novo episódio na tabela Episodios_exibir
                     const queryInsertEpisodiosExibir = `
                         INSERT INTO Episodios_exibir (anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     `;
                 
-                    db.run(queryInsertEpisodiosExibir, [anime.Anime_id, temporada, episodio, descricao, link, link_extra_1, link_extra_2, link_extra_3], function (err) {
+                    db.run(queryInsertEpisodiosExibir, [anime.Anime_id, temporada, episodio, nomeFormatado, link, link_extra_1, link_extra_2, link_extra_3], function (err) {
                         if (err) {
                             return res.status(500).json({ message: 'Erro ao inserir o episódio.', error: err.message });
                         }
@@ -2663,21 +2685,24 @@ app.post('/adicionarEpisodio', (req, res) => {
                             if (err) {
                                 return res.status(500).json({ message: 'Erro ao consultar o banco de dados para a capa.', error: err.message });
                             }
-                
+                        
                             // Se não houver episódios anteriores, use uma capa padrão
                             const linkCapa = resultado ? resultado.capa_ep : 'https://via.placeholder.com/150';
-                
+                        
+                            // Formatar o nome do episódio
+                            const descricaoFormatada = formatEpisodeName(descricao);
+                        
                             // Inserir o novo episódio na tabela episodios com o link e capa gerados
                             const queryInsertEpisodios = `
-                                INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id)
-                                VALUES (?, ?, ?, ?, ?, ?)
+                                INSERT INTO episodios (temporada, numero, nome, link, capa_ep, anime_id, alertanovoep)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
                             `;
-                
-                            db.run(queryInsertEpisodios, [temporada, episodio, descricao, linkEpisodioGerado, linkCapa, anime.Anime_id], function (err) {
+                        
+                            db.run(queryInsertEpisodios, [temporada, episodio, descricaoFormatada, linkEpisodioGerado, linkCapa, anime.Anime_id, 1], function (err) {
                                 if (err) {
                                     return res.status(500).json({ message: 'Erro ao inserir o episódio na tabela episodios.', error: err.message });
                                 }
-                
+                        
                                 // Retorna sucesso com o ID do episódio recém-criado nas duas tabelas
                                 return res.status(201).json({
                                     message: 'Episódio adicionado com sucesso!',
@@ -2687,22 +2712,25 @@ app.post('/adicionarEpisodio', (req, res) => {
                                 });
                             });
                         });
+                        
                     });
                 } else {
                     // Retorna erro se o número do episódio não é o próximo na sequência
                     return res.status(409).json({ message: 'O número do episódio deve ser o próximo na sequência ou o primeiro.' });
                 }
                 
+                
+                
+                
             });
         });
     });
 });
 
-
-
 app.get('/buscarEpisodios', async (req, res) => {
     const resultados = [];
 
+    // Inicializa o Puppeteer
     // Inicializa o Puppeteer
     const browser = await puppeteer.launch({
         executablePath: '/usr/bin/google-chrome',
@@ -2907,10 +2935,27 @@ app.get('/buscarEpisodios', async (req, res) => {
                                         await page.waitForSelector('.ListaContainer', { timeout: 10000 });
                                         const episodeLinks = await page.evaluate(() => {
                                             const episodeElements = Array.from(document.querySelectorAll('ul#lAnimes a'));
-                                            return episodeElements.map(element => element.href);
+                                            return episodeElements.map(element => ({
+                                                href: element.href,
+                                                text: element.textContent.trim() // Extrair o texto para pegar o número do episódio
+                                            }));
                                         });
 
-                                        
+function extractEpisodeNumber(episodeText) {
+    // Captura episódios inteiros e fracionados
+    const match = episodeText.match(/Episódio\s+([\d.]+)/);
+    return match ? parseFloat(match[1]) : null; // Usar parseFloat para lidar com frações
+}
+
+const sortedEpisodeLinks = episodeLinks
+    .map(item => ({ ...item, episodeNumber: extractEpisodeNumber(item.text) }))
+    .filter(item => item.episodeNumber !== null) // Filtrar episódios sem número
+    .sort((a, b) => a.episodeNumber - b.episodeNumber); // Ordenar por número do episódio
+
+// Exibir resultados
+console.log(sortedEpisodeLinks);
+                                        console.log("Episódios ordenados:", sortedEpisodeLinks);
+
                                         console.log(episodeLinks)
 
                                         await page.goto(episodeLink);
@@ -2919,19 +2964,21 @@ app.get('/buscarEpisodios', async (req, res) => {
                                         
                                         
                                         // Função para processar episódios em ordem
-                                        async function processEpisodesInOrder(episodeLinks, vpsUrl) {
-                                            for (const url of episodeLinks) { // Iterar diretamente sobre os links
+                                        async function processEpisodesInOrder(sortedEpisodeLinks, vpsUrl) {
+                                            for (let index = 0; index < sortedEpisodeLinks.length; index++) { // Usar index para contar
+                                                const url = sortedEpisodeLinks[index]; // Obter o link atual
                                                 const page = await browser.newPage();
                                                 let attempts = 0;
                                                 let linksEncontrados = [];
                                                 const maxAttempts = 3;
-                                                let episodioenvio = 1;
+                                                const episodioenvio = index + 1; // Define o número do episódio baseado no índice (1, 2, 3, ...)
+                                        
                                                 let descricaoenvio = null;
                                         
                                                 while (attempts < maxAttempts && linksEncontrados.length === 0) {
                                                     try {
                                                         console.log("Processing episode:", url);
-                                                        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
+                                                        await page.goto(url.href, { waitUntil: 'domcontentloaded', timeout: 60000 });
                                                         await page.waitForSelector('.videoBox', { timeout: 25000 });
                                                         await wait(20000); // Adicione um atraso adicional se necessário
                                         
@@ -2944,15 +2991,6 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                         if (descricaoMatchenvio) {
                                                             descricaoenvio = descricaoMatchenvio[1];
                                                             console.log(`Descrição do episódio: ${descricaoenvio}`);
-                                        
-                                                            const episodioMatch = descricaoenvio.match(/Episódio\s+(\d+)/);
-                                        
-                                                            if (episodioMatch) {
-                                                                episodioenvio = parseInt(episodioMatch[1], 10);
-                                                                console.log(`Número do episódio: ${episodioenvio}`);
-                                                            } else {
-                                                                console.log('Número do episódio não encontrado.');
-                                                            }
                                                         } else {
                                                             console.log('Nenhuma descrição encontrada para este episódio.');
                                                             continue; // Pular este episódio e passar para o próximo
@@ -3007,7 +3045,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                 }
                                         
                                                 if (linksEncontrados.length === 0) {
-                                                    console.log(`Falha ao encontrar links após ${maxAttempts} tentativas para o episódio: ${url}`);
+                                                    console.log(`Falha ao encontrar links após ${maxAttempts} tentativas para o episódio: ${url.href}`);
                                                     await page.close(); // Fechar a aba após as tentativas
                                                     continue; // Passar para o próximo episódio
                                                 }
@@ -3015,7 +3053,7 @@ app.get('/buscarEpisodios', async (req, res) => {
                                                 const episodioData = {
                                                     nomeAnime,
                                                     temporada,
-                                                    episodio: episodioenvio,
+                                                    episodio: episodioenvio, // Usar o índice + 1 como número do episódio
                                                     descricao: descricaoenvio,
                                                     link: linksEncontrados[0] || 'Link não encontrado',
                                                     link_extra_1: linksEncontrados[1] || null,
@@ -3047,7 +3085,8 @@ app.get('/buscarEpisodios', async (req, res) => {
                                             }
                                         }
                                         
-                                        await processEpisodesInOrder(episodeLinks, vpsUrl);
+                                        
+                                        await processEpisodesInOrder(sortedEpisodeLinks, vpsUrl);
                                         
                                         
                                         
@@ -3070,11 +3109,6 @@ app.get('/buscarEpisodios', async (req, res) => {
                             console.error(`Erro ao adicionar episódio: ${error.message}`);
                         }
                     }
-  
-                    
-                
-                        
-                                   
 
                     break;
 
