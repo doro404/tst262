@@ -2726,7 +2726,6 @@ app.post('/adicionarEpisodio', (req, res) => {
     });
 });
 
-
 app.get('/buscarEpisodios', async (req, res) => {
     const resultados = [];
 
@@ -2821,11 +2820,26 @@ app.get('/buscarEpisodios', async (req, res) => {
                         await page.waitForSelector('.videoBox', { timeout: 10000 });
                         await wait(5000);
                     
-                        const htmlContent = await page.evaluate(() => document.documentElement.innerHTML);
+                        const htmlContent = await page.evaluate(() => {
+                            // Remove todas as tags <style> e <link> que carregam CSS
+                            const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
+                            styles.forEach(style => style.remove());
+                        
+                            // Remove todas as tags <script>
+                            const scripts = document.querySelectorAll('script');
+                            scripts.forEach(script => script.remove());
+                        
+                            // Remove todas as tags <svg>
+                            const svgs = document.querySelectorAll('svg');
+                            svgs.forEach(svg => svg.remove());
+                        
+                            // Extrai o HTML inteiro da página
+                            return document.documentElement.innerHTML;
+                        });
                     
                         const temporada = 1;
                         console.log(`Temporada definida: ${temporada}`);
-                    
+    
                         // Busca a descrição do episódio
                         const descricaoMatch = htmlContent.match(/<div class="col"><center><h3><a href="[^"]*">([^<]*)<\/a><\/h3><\/center><\/div>/);
                         let descricao = null;
@@ -2836,17 +2850,36 @@ app.get('/buscarEpisodios', async (req, res) => {
                             console.log('Nenhuma descrição encontrada para este episódio.');
                             continue; 
                         }
-                        if (descricao.includes(' - ')) {
-                            nomeAnime = descricao.split(' - ')[0].trim(); // Se houver hífen simples
-                        } else if (descricao.includes(' – ')) {
-                            nomeAnime = descricao.split(' – ')[0].trim(); // Se houver o símbolo '–'
-                        } else {
-                            // Caso contrário, divide pelo texto "Episódio"
-                            nomeAnime = descricao.split(' Episódio')[0].trim(); 
-                        }
                         
-                        console.log(`Nome do anime: ${nomeAnime}`);
-                    
+                        const nomeAnime = await page.evaluate(() => {
+                            const tituloElement = document.querySelector('.SingleTitulo .mwidth a');
+                            if (tituloElement) {
+                                // Extrai o texto completo
+                                let tituloCompleto = tituloElement.textContent.trim();
+                                
+                                // Verifica se o título está no formato "Assistir NomeDoAnime - Episodio N Online"
+                                if (/^Assistir .+ - Episodio \d+/i.test(tituloCompleto)) {
+                                    // Remove "Assistir", o hífen, "Episodio [número]" e "Online"
+                                    return tituloCompleto
+                                        .replace(/^Assistir\s+/i, '')  // Remove "Assistir" do início
+                                        .replace(/[-–]\s*Episodio \d+\s*Online/i, '')  // Remove "- Episodio [número] Online"
+                                        .trim();  // Remove espaços extras
+                                } else {
+                                    // Caso o título seja algo como "NomeDoAnime Episodio [número] Online"
+                                    return tituloCompleto
+                                        .replace(/ Episódio \d+| Online/gi, '')  // Remove "Episódio [número]" e "Online"
+                                        .trim();
+                                }
+                            }
+                            return null;
+                        });
+                        
+                        
+                        if (nomeAnime) {
+                            console.log(`Título do anime: ${nomeAnime}`);
+                        } else {
+                            console.log('Título não encontrado.');
+                        }
                         const episodioMatch = descricao.match(/Episódio\s+(\d+)/);
                         let episodio = 1;
                         if (episodioMatch) {
@@ -2855,17 +2888,38 @@ app.get('/buscarEpisodios', async (req, res) => {
                         } else {
                             console.log('Número do episódio não encontrado.');
                         }
-                    
+                       // Seleciona todos os links de abas
+                        const abas = await page.$$('#RiverLabAbas li a');
+                        function sleep(ms) {
+                            return new Promise(resolve => setTimeout(resolve, ms));
+                        }
+                        // Clica em cada link com um intervalo de 3 segundos
+                        for (let i = 0; i < abas.length; i++) {
+                            const aba = abas[i];
+                            
+                            // Simula um clique na aba
+                            await aba.click();
+                            console.log(`Clicando na aba: ${await aba.evaluate(link => link.textContent)}`);
+
+                            // Espera um tempo para o conteúdo carregar após o clique
+                            await sleep(3000);
+                        }
+                                            
                         let linksEncontrados = [];
 
                         // Regex para verificar links de diferentes domínios
                        // Regex para verificar links de diferentes domínios
                         const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g); // Note o 'g' para múltiplos
                         const mangasCloudMatches = htmlContent.match(/https:\/\/mangas\.cloud\/[^"]*\.mp4/g);
-                        const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
-                        const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/dl\/download\/[^"]*\.mp4/g); // Adicionando domínio cld.pt
+                        const cldPtMatches = htmlContent.match(/https:\/\/cld\.pt\/[^?"]*\.mp4/g); 
                         const aniplayMatches = htmlContent.match(/https:\/\/aniplay\.online\/[^"]*\.mp4/g); // Adicionando domínio aniplay.online
+                        const animeflixMatches = htmlContent.match(/https:\/\/animeflix\.blog\/[^"]*\.mp4/g);
 
+                        if (animeflixMatches) {
+                            console.log(`Conteúdo: ${animeflixMatches}`);
+                        } else {
+                            console.log('Nenhum vídeo MP4 encontrado nos domínios especificados.');
+                        }
                         // Adicione os links encontrados aos arrays (até 3 links no total)
                         if (bloggerLinkMatches) {
                             linksEncontrados.push(...bloggerLinkMatches.map(link => link.replace(/\\|"/g, '')));
@@ -2882,6 +2936,8 @@ app.get('/buscarEpisodios', async (req, res) => {
                         if (aniplayMatches) {
                             linksEncontrados.push(...aniplayMatches);
                         }
+
+
 
 
                         // Limite os links encontrados a 3 (caso tenha mais de 3)
@@ -2941,19 +2997,19 @@ app.get('/buscarEpisodios', async (req, res) => {
                                             }));
                                         });
 
-function extractEpisodeNumber(episodeText) {
-    // Captura episódios inteiros e fracionados
-    const match = episodeText.match(/Episódio\s+([\d.]+)/);
-    return match ? parseFloat(match[1]) : null; // Usar parseFloat para lidar com frações
-}
+                                        function extractEpisodeNumber(episodeText) {
+                                            // Captura episódios inteiros e fracionados
+                                            const match = episodeText.match(/Episódio\s+([\d.]+)/);
+                                            return match ? parseFloat(match[1]) : null; // Usar parseFloat para lidar com frações
+                                        }
 
-const sortedEpisodeLinks = episodeLinks
-    .map(item => ({ ...item, episodeNumber: extractEpisodeNumber(item.text) }))
-    .filter(item => item.episodeNumber !== null) // Filtrar episódios sem número
-    .sort((a, b) => a.episodeNumber - b.episodeNumber); // Ordenar por número do episódio
+                                        const sortedEpisodeLinks = episodeLinks
+                                            .map(item => ({ ...item, episodeNumber: extractEpisodeNumber(item.text) }))
+                                            .filter(item => item.episodeNumber !== null) // Filtrar episódios sem número
+                                            .sort((a, b) => a.episodeNumber - b.episodeNumber); // Ordenar por número do episódio
 
-// Exibir resultados
-console.log(sortedEpisodeLinks);
+                                        // Exibir resultados
+                                        console.log(sortedEpisodeLinks);
                                         console.log("Episódios ordenados:", sortedEpisodeLinks);
 
                                         console.log(episodeLinks)
@@ -2996,14 +3052,29 @@ console.log(sortedEpisodeLinks);
                                                             continue; // Pular este episódio e passar para o próximo
                                                         }
                                         
-                                                        let nomeAnime;
-                                                        if (descricaoenvio.includes(' - ')) {
-                                                            nomeAnime = descricaoenvio.split(' - ')[0].trim();
-                                                        } else if (descricaoenvio.includes(' – ')) {
-                                                            nomeAnime = descricaoenvio.split(' – ')[0].trim();
-                                                        } else {
-                                                            nomeAnime = descricaoenvio.split(' Episódio')[0].trim();
-                                                        }
+                                                        const nomeAnime = await page.evaluate(() => {
+                                                            const tituloElement = document.querySelector('.SingleTitulo .mwidth a');
+                                                            if (tituloElement) {
+                                                                // Extrai o texto completo
+                                                                let tituloCompleto = tituloElement.textContent.trim();
+                                                                
+                                                                // Verifica se o título está no formato "Assistir NomeDoAnime - Episodio N Online"
+                                                                if (/^Assistir .+ - Episodio \d+/i.test(tituloCompleto)) {
+                                                                    // Remove "Assistir", o hífen, "Episodio [número]" e "Online"
+                                                                    return tituloCompleto
+                                                                        .replace(/^Assistir\s+/i, '')  // Remove "Assistir" do início
+                                                                        .replace(/[-–]\s*Episodio \d+\s*Online/i, '')  // Remove "- Episodio [número] Online"
+                                                                        .trim();  // Remove espaços extras
+                                                                } else {
+                                                                    // Caso o título seja algo como "NomeDoAnime Episodio [número] Online"
+                                                                    return tituloCompleto
+                                                                        .replace(/ Episódio \d+| Online/gi, '')  // Remove "Episódio [número]" e "Online"
+                                                                        .trim();
+                                                                }
+                                                            }
+                                                            return null;
+                                                        });
+                                                        
                                         
                                                         // Regex para verificar links de diferentes domínios
                                                         const bloggerLinkMatches = htmlContent.match(/https:\/\/www\.blogger\.com\/video\.g\?token=\S+/g);
@@ -3152,6 +3223,7 @@ console.log(sortedEpisodeLinks);
     await browser.close();
     res.status(200).json({ resultados });
 });
+
 
 
 app.post('/api/suporte', (req, res) => {
