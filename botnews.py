@@ -138,6 +138,14 @@ def marcar_alerta(anime_id, episodio_numero):
     except Exception as e:
         print(f'Erro ao marcar alerta: {str(e)}')
 
+# Função assíncrona para enviar um episódio com atraso
+async def enviar_mensagem_no_canal_ep_com_atraso(mensagem, url_imagem, anime_id, episodio_numero, delay=2):
+    # Enviar a mensagem para o episódio
+    await enviar_mensagem_no_canal_ep(mensagem, url_imagem, anime_id, episodio_numero)
+    
+    # Introduzir um atraso de 'delay' segundos entre os envios
+    await asyncio.sleep(delay)
+
 async def enviar_detalhes_animes_lancados_hoje():
     try:
         response = requests.get('https://saikanet.online:3000/animes-lancados-hoje')
@@ -194,45 +202,38 @@ async def enviar_detalhes_animes_lancados_hoje():
                     if imagem_ep:
                         link_ep = f'https://animesonlinebr.fun/d?id={anime_id}&ep={episodio_numero}'
                         data_atual = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        mensagem = (
-                            f'🎥 Novo Episódio: {episodio.get("nome", "Desconhecido")}\n\n'
-                            f'📺 Anime: {anime.get("titulo", "Desconhecido")}\n'
-                            f'🎬 Episódio: {episodio.get("numero", "Desconhecido")}\n'
-                            f'🔗 Link: {link_ep}\n'
-                            f'📅 Data de Postagem: {data_atual}\n\n'
+                        mensagem_ep = (
+                            f'🔔 Novo Episódio Disponível\n\n'
+                            f'🎬 Título do Anime: {anime.get("titulo", "Desconhecido")}\n'
+                            f'🎬 Episódio: {episodio_numero}\n'
+                            f'📅 Data: {data_atual}\n\n'
+                            f'🎥 Assista aqui: {link_ep}\n'
                         )
 
-                        # Adicionar o episódio à lista de tarefas para envio
-                        tarefas.append(enviar_mensagem_no_canal_ep(mensagem, imagem_ep, anime_id, episodio_numero))
+                        # Adicionar o episódio à lista de tarefas para envio, com atraso entre os envios
+                        tarefas.append(enviar_mensagem_no_canal_ep_com_atraso(mensagem_ep, imagem_ep, anime_id, episodio_numero, delay=5))
 
                         # Marcar o episódio como enviado no banco de dados
+                        marcar_episodio_como_enviado(episodio_id, anime_id, episodio_numero)
 
-                        # Marcar alerta
-                        tarefas.append(asyncio.create_task(
-                            asyncio.to_thread(marcar_alerta, anime_id, episodio_numero)
-                        ))
+                        # Marcar alerta para o episódio
+                        marcar_alerta(anime_id, episodio_numero)
 
+                # Aguardar todas as mensagens serem enviadas, incluindo os atrasos
                 await asyncio.gather(*tarefas)
-                print('Detalhes dos animes e episódios enviados com sucesso para os canais!')
+
             else:
-                print('Resposta inválida da rota /animes-lancados-hoje: Dados ausentes ou mal formatados')
+                print('Resposta JSON não contém "animesCompletos" ou "episodiosNovos".')
         else:
-            print('Erro ao buscar detalhes dos animes lançados hoje:', response.status_code)
+            print(f'Erro na requisição: {response.status_code}')
     except Exception as e:
-        print('Erro ao buscar ou enviar detalhes dos animes lançados hoje:', str(e))
+        print(f'Erro ao enviar detalhes dos animes: {str(e)}')
 
-
-# Função principal para iniciar o processo
-async def main():
-    print('Iniciando verificação imediata dos animes lançados hoje e episódios novos...')
-    await enviar_detalhes_animes_lancados_hoje()
-    print('Verificação imediata concluída.')
-    
-    while True:
-        await enviar_detalhes_animes_lancados_hoje()
-        # Esperar por uma hora antes de verificar novamente
-        await asyncio.sleep(3600)
+# Função principal
+def main():
+    configurar_banco_de_dados()  # Configurar o banco de dados na inicialização
+    loop = asyncio.get_event_loop()  # Obter o loop de eventos
+    loop.run_until_complete(enviar_detalhes_animes_lancados_hoje())  # Executar a função assíncrona
 
 if __name__ == '__main__':
-    configurar_banco_de_dados()
-    asyncio.run(main())
+    main()
